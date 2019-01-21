@@ -1,0 +1,4 @@
+(library
+ (name bot_module)
+ (libraries async async_ssl httpaf httpaf-async yojson ppx_deriving_yojson.runtime telegram)
+ (preprocess (pps ppx_deriving_yojson)))

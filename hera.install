@@ -1,0 +1,10 @@
+lib: [
+  "_build/install/default/lib/hera/META" {"META"}
+  "_build/install/default/lib/hera/opam" {"opam"}
+]
+bin: [
+  "_build/install/default/bin/hera" {"hera"}
+]
+doc: [
+  "_build/install/default/doc/hera/README.md"
+]

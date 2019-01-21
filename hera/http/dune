@@ -1,0 +1,4 @@
+(library
+ (name http)
+ (libraries async async_ssl httpaf httpaf-async yojson ppx_deriving_yojson.runtime uri)
+ (preprocess (pps ppx_deriving_yojson)))
