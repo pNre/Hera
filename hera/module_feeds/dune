@@ -1,0 +1,3 @@
+(library
+ (name module_feeds)
+ (libraries async async_ssl httpaf httpaf-async syndic caqti caqti-async caqti-driver-sqlite3 bot_module))

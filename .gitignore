@@ -1,3 +1,5 @@
 **/_build
 **/.merlin
+db/*
 env.sh
+

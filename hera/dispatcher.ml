@@ -3,7 +3,8 @@ open Core
 
 let modules =
   [ (module Module_dictionary.Dispatcher: Bot_module.Module.t)
-  ; (module Module_stocks.Dispatcher: Bot_module.Module.t) ]
+  ; (module Module_stocks.Dispatcher: Bot_module.Module.t)
+  ; (module Module_feeds.Dispatcher: Bot_module.Module.t)]
 
 let register m =
   let module M = (val m: Bot_module.Module.t) in

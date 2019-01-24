@@ -41,7 +41,7 @@ type message_entity_type =
 [@@deriving of_yojson]
 
 type message_entity = {
-  entity_type: message_entity_type [@key "type"];
+  entity_type: string [@key "type"];
   offset: int;
   length: int;
   url: string option [@default None];
