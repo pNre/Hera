@@ -52,15 +52,12 @@ let latest_content_of_feed = function
   | `Atom atom -> atom.Syndic.Atom.entries |> List.hd |> Option.map ~f:content_of_atom
 ;;
 
-let push_new_content ~title ~link:_ ~(subscription : t) ~sent_item =
+let push_new_content ~title ~link ~(subscription : t) ~sent_item =
   Db.Main.insert_sent_item sent_item
   >>> fun _ ->
-  don't_wait_for
-    ( Telegram.send_message
-        ~chat_id:(Int64.of_string subscription.subscriber_id)
-        ~text:title
-        ()
-    >>| ignore )
+  let text = sprintf "%s\n%s" title (Uri.to_string link) in
+  let chat_id = Int64.of_string subscription.subscriber_id in
+  don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
 ;;
 
 let send_content_if_needed content ~(subscription : t) =
