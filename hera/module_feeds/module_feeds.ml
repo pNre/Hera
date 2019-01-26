@@ -2,15 +2,20 @@ open Async
 open Core
 
 module Dispatcher : Bot_module.Module.t = struct
+  let create_tables () =
+    Db.Main.create_tables ()
+    >>> function Ok _ -> () | Error _ -> failwith "Error creating module_feeds tables"
+  ;;
+
   let load_subscriptions () =
-    Db.Main.subscriptions () >>> Result.iter ~f:(List.iter ~f:Subscription.begin_checking_subscription)
+    Db.Main.subscriptions ()
+    >>> Result.iter ~f:(List.iter ~f:Subscription.begin_checking_subscription)
   ;;
 
   (* Bot module *)
   let register () =
     Db.Main.open_connection ();
-    ( Db.Main.create_tables ()
-    >>> function Ok _ -> () | Error _ -> failwith "Error creating module_feeds tables" );
+    create_tables ();
     load_subscriptions ()
   ;;
 
@@ -19,8 +24,7 @@ module Dispatcher : Bot_module.Module.t = struct
   let on_command ~chat_id ~text =
     match text with
     | t when String.is_prefix t ~prefix:"fa " ->
-      let feed_url = String.chop_prefix_exn t ~prefix:"fa " in
-      Subscription.add_subscription chat_id feed_url;
+      t |> String.chop_prefix_exn ~prefix:"fa " |> Subscription.add_subscription chat_id;
       true
     | t when String.is_prefix t ~prefix:"fu " ->
       let _feed_url = String.chop_prefix_exn t ~prefix:"fu " in

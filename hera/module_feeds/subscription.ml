@@ -1,18 +1,13 @@
 open Async
 open Core
 open Syndic
-
-type t = Types.subscription
-
-type content =
-  { title : string option
-  ; link : Uri.t option }
+open Types
 
 type error =
   | Http of Http.http_error
   | Parse of Atom.Error.t
 
-let get_feed_content (s : t) =
+let get_feed_content s =
   let uri = Uri.of_string s.feed_url in
   let host = uri |> Uri.host |> fun host -> Option.value_exn host in
   let default_port = if Uri.scheme uri = Some "https" then 443 else 80 in
@@ -23,8 +18,30 @@ let get_feed_content (s : t) =
   Http.request request () >>|? fun (_, body) -> Bigbuffer.contents body
 ;;
 
+let push_new_content ~title ~link ~subscription ~sent_item =
+  Db.Main.insert_sent_item sent_item
+  >>> fun _ ->
+  let text = sprintf "%s\n%s" title link in
+  let chat_id = Int64.of_string subscription.subscriber_id in
+  don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
+;;
+
+let send_content_if_needed content ~subscription =
+  match content with
+  | Some {title = Some title; link = Some link} ->
+    Log.Global.info "Checking whether to send %s to %s" link subscription.subscriber_id;
+    let sent_item = Types.{subscription_id = subscription.id; last_item_url = link} in
+    Db.Main.find_sent_item sent_item
+    >>> (function
+    | Ok false ->
+      Log.Global.info "Sending %s to %s" link subscription.subscriber_id;
+      push_new_content ~title ~link ~subscription ~sent_item
+    | _ -> Log.Global.info "%s already sent to %s" link subscription.subscriber_id)
+  | _ -> ()
+;;
+
 let content_of_rss1 (feed : Syndic.Rss1.item) =
-  {title = Some feed.title; link = Some feed.link}
+  {title = Some feed.title; link = Some (Uri.to_string feed.link)}
 ;;
 
 let content_of_atom (feed : Syndic.Atom.entry) =
@@ -33,7 +50,9 @@ let content_of_atom (feed : Syndic.Atom.entry) =
     | Text title | Html (_, title) -> title
     | Xhtml _ -> "Unparsable title"
   in
-  let link = feed.links |> List.hd |> Option.map ~f:(fun l -> l.Atom.href) in
+  let link =
+    feed.links |> List.hd |> Option.map ~f:(fun l -> Uri.to_string l.Atom.href)
+  in
   {title = Some title; link}
 ;;
 
@@ -43,37 +62,13 @@ let content_of_rss2 (feed : Syndic.Rss2.item) =
     | All (title, _, _) | Title title -> title
     | Description _ -> "Unparsable title"
   in
-  {title = Some title; link = feed.link}
+  {title = Some title; link = feed.link |> Option.map ~f:Uri.to_string}
 ;;
 
 let latest_content_of_feed = function
   | `Rss1 rss1 -> rss1.Syndic.Rss1.item |> List.hd |> Option.map ~f:content_of_rss1
   | `Rss2 rss2 -> rss2.Syndic.Rss2.items |> List.hd |> Option.map ~f:content_of_rss2
   | `Atom atom -> atom.Syndic.Atom.entries |> List.hd |> Option.map ~f:content_of_atom
-;;
-
-let push_new_content ~title ~link ~(subscription : t) ~sent_item =
-  Db.Main.insert_sent_item sent_item
-  >>> fun _ ->
-  let text = sprintf "%s\n%s" title (Uri.to_string link) in
-  let chat_id = Int64.of_string subscription.subscriber_id in
-  don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
-;;
-
-let send_content_if_needed content ~(subscription : t) =
-  match content with
-  | Some {title = Some title; link = Some link} ->
-    Log.Global.info
-      "Checking whether to send %s to %s"
-      (Uri.to_string link)
-      subscription.subscriber_id;
-    let sent_item =
-      Types.{subscription_id = subscription.id; last_item_url = Uri.to_string link}
-    in
-    Db.Main.find_sent_item sent_item
-    >>> (function
-    | Ok false -> push_new_content ~title ~link ~subscription ~sent_item | _ -> ())
-  | _ -> ()
 ;;
 
 let attempt_map_feed ~xmlbase content =
@@ -87,14 +82,14 @@ let attempt_map_feed ~xmlbase content =
     | f :: fs -> (try Ok (f (make_input ())) with _ -> parse fs)
     | [] -> Error (Parse ((0, 0), "Couldn't parse feed"))
   in
-  Deferred.return (parse parse_funs)
+  parse parse_funs
 ;;
 
 let begin_checking_subscription s =
   let check_for_new_entries () =
     get_feed_content s
     >>| Result.map_error ~f:(fun err -> Http err)
-    >>=? attempt_map_feed ~xmlbase:(Uri.of_string s.feed_url)
+    >>| Result.bind ~f:(attempt_map_feed ~xmlbase:(Uri.of_string s.feed_url))
     >>|? latest_content_of_feed
     >>| Result.map ~f:(send_content_if_needed ~subscription:s)
     >>| function

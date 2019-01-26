@@ -7,3 +7,7 @@ type subscription =
 type sent_item =
   { subscription_id : int
   ; last_item_url : string }
+
+type feed_content =
+  { title : string option
+  ; link : string option }
