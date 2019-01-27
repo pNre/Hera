@@ -77,6 +77,11 @@ let attempt_map_feed ~xmlbase content =
 ;;
 
 let begin_checking_subscription subscription send =
+  let string_of_request_error = function
+    | `Malformed_response err -> err
+    | `Invalid_response_body_length _ -> "Invalid response body length"
+    | `Exn exn -> Exn.to_string exn
+  in
   let check_for_new_entries () =
     get_feed_content subscription
     >>| Result.map_error ~f:(fun err -> `Http err)
@@ -85,6 +90,11 @@ let begin_checking_subscription subscription send =
     >>| Result.map ~f:(send_content_if_needed ~subscription ~send)
     >>| function
     | Ok _ -> ()
+    | Error (`Http (Request err)) ->
+      Log.Global.error
+        "Download of feed %s failed -> %s"
+        subscription.feed_url
+        (string_of_request_error err)
     | Error (`Http _err) ->
       Log.Global.error "Download of feed %s failed" subscription.feed_url
     | Error (`Parse (_, error_string)) ->
@@ -114,8 +124,7 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
     >>| Result.join
     >>=? (fun _ ->
            Log.Global.info "Adding subscription %s" feed_url;
-           Db.insert_subscription subscription >>| Result.map_error ~f:map_db_error
-           )
+           Db.insert_subscription subscription >>| Result.map_error ~f:map_db_error )
     >>> Result.iter ~f:(fun () -> begin_checking_subscription subscription reply)
   | _ -> Log.Global.error "Invalid uri %s" feed_url
 ;;

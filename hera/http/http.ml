@@ -78,11 +78,19 @@ let request req ?(on_write_body = Body.close_writer) () =
       in
       Deferred.create (fun i ->
           let request_body =
-            Client.SSL.request
-              ~error_handler:(request_error i)
-              ~response_handler:(response_handler i)
-              socket
-              request
+            match req.host_and_port.port with
+            | 80 ->
+              Client.request
+                ~error_handler:(request_error i)
+                ~response_handler:(response_handler i)
+                socket
+                request
+            | _ ->
+              Client.SSL.request
+                ~error_handler:(request_error i)
+                ~response_handler:(response_handler i)
+                socket
+                request
           in
           on_write_body request_body ) )
   >>| function
