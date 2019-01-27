@@ -71,6 +71,15 @@ module Main = struct
            FROM subscription |}
     ;;
 
+    let find_subscription =
+      Caqti_request.find
+        Caqti_type.(tup2 string string)
+        Caqti_type.int
+        {| SELECT COUNT(1)
+           FROM subscription
+           WHERE subscriber_id = ? AND feed_url = ? |}
+    ;;
+
     let insert_subscription =
       Caqti_request.exec
         insert_subscription_type
@@ -78,6 +87,13 @@ module Main = struct
            (subscriber_id, type_id, feed_url)
            VALUES
            (?, ?, ?) |}
+    ;;
+
+    let delete_subscription =
+      Caqti_request.exec
+        Caqti_type.(tup2 string string)
+        {| DELETE FROM subscription
+           WHERE subscriber_id = ? AND feed_url = ? |}
     ;;
 
     (* Sent items *)
@@ -160,6 +176,13 @@ module Main = struct
     with_connection subscriptions' >>|? List.map ~f:Queries.subscription_of_result
   ;;
 
+  let find_subscription ~subscriber_id ~feed_url =
+    let subscription (module Connection : Caqti_async.CONNECTION) =
+      Connection.find Queries.find_subscription (subscriber_id, feed_url)
+    in
+    with_connection subscription >>|? fun x -> x > 0
+  ;;
+
   let find_sent_item item =
     let sent_item' (module Connection : Caqti_async.CONNECTION) =
       Connection.find
@@ -183,11 +206,16 @@ module Main = struct
     let insert (module Connection : Caqti_async.CONNECTION) =
       Connection.exec
         Queries.insert_subscription
-        Types.(
-          ( subscription.subscriber_id
-          , subscription.type_id
-          , subscription.feed_url ))
+        Types.(subscription.subscriber_id, subscription.type_id, subscription.feed_url)
     in
     in_transaction insert
+  ;;
+
+  (* Delete *)
+  let delete_subscription ~subscriber_id ~feed_url =
+    let delete (module Connection : Caqti_async.CONNECTION) =
+      Connection.exec Queries.delete_subscription (subscriber_id, feed_url)
+    in
+    in_transaction delete
   ;;
 end

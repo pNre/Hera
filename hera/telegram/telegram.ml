@@ -139,9 +139,9 @@ let set_webhook url =
   let path = sprintf "/bot%s/setWebhook?%s" token qs in
   get path
 
-let send_message ~chat_id ~text ?(parse_mode = Markdown) () =
+let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
   let qs = Uri.encoded_of_query [ ("chat_id", [Int64.to_string chat_id])
                                 ; ("text", [text])
-                                ; ("parse_mode", [string_of_parse_mode parse_mode])] in
+                                ; ("parse_mode", [parse_mode |> Option.map ~f:string_of_parse_mode] |> List.filter_opt)] in
   let path = sprintf "/bot%s/sendMessage?%s" token qs in
   get path
