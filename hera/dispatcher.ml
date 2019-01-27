@@ -2,16 +2,16 @@ open Async
 open Core
 
 let modules =
-  [ (module Module_dictionary.Dispatcher: Bot_module.Module.t)
-  ; (module Module_stocks.Dispatcher: Bot_module.Module.t)
-  ; (module Module_feeds.Dispatcher: Bot_module.Module.t)]
+  [ (module Module_dictionary.Dispatcher: Bot.Module.t)
+  ; (module Module_stocks.Dispatcher: Bot.Module.t)
+  ; (module Module_feeds.Dispatcher: Bot.Module.t)]
 
 let register m =
-  let module M = (val m: Bot_module.Module.t) in
+  let module M = (val m: Bot.Module.t) in
   M.register ()
 
 let on_update m reqd update =
-  let module M = (val m: Bot_module.Module.t) in
+  let module M = (val m: Bot.Module.t) in
   M.on_update reqd update
 
 let register_modules () =
@@ -19,7 +19,7 @@ let register_modules () =
 
 let modules_help () =
   let module_help m =
-    let module M = (val m: Bot_module.Module.t) in
+    let module M = (val m: Bot.Module.t) in
     M.help () in
   modules
   |> List.map ~f:module_help

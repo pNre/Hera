@@ -1,7 +1,7 @@
 open Async
 open Core
 
-module Dispatcher : Bot_module.Module.t = struct
+module Dispatcher : Bot.Module.t = struct
   (* Utils *)
   let reply chat_id text =
     don't_wait_for (Telegram.send_message ~chat_id ~text ~parse_mode:None () >>| ignore)

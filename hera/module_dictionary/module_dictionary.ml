@@ -2,7 +2,7 @@ open Async
 open Core
 open Httpaf
 
-module Dispatcher : Bot_module.Module.t = struct
+module Dispatcher : Bot.Module.t = struct
   type sense =
     { definitions : string list [@default []]
     ; short_definitions : string list [@default []]

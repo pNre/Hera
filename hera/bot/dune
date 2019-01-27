@@ -1,0 +1,3 @@
+(library
+ (name bot)
+ (libraries httpaf telegram))

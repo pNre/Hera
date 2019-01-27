@@ -1,4 +1,4 @@
 (library
  (name module_stocks)
- (libraries async async_ssl httpaf httpaf-async yojson ppx_deriving_yojson.runtime bot_module)
+ (libraries async async_ssl httpaf httpaf-async yojson ppx_deriving_yojson.runtime bot)
  (preprocess (pps ppx_deriving_yojson)))

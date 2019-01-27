@@ -1,1 +1,1 @@
-module Dispatcher: Bot_module.Module.t
+module Dispatcher: Bot.Module.t

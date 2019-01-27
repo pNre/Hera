@@ -1,7 +1,7 @@
 open Async
 open Core
 
-module Dispatcher : Bot_module.Module.t = struct
+module Dispatcher : Bot.Module.t = struct
   type symbol =
     { symbol : string
     ; name : string }
