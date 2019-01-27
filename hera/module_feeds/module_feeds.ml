@@ -9,7 +9,7 @@ module Dispatcher : Bot_module.Module.t = struct
 
   (* Init *)
   let create_tables () =
-    Db.Main.create_tables ()
+    Db.create_tables ()
     >>> function Ok _ -> () | Error _ -> failwith "Error creating module_feeds tables"
   ;;
 
@@ -19,18 +19,18 @@ module Dispatcher : Bot_module.Module.t = struct
         subscription
         (reply (Int64.of_string subscription.subscriber_id))
     in
-    Db.Main.subscriptions ()
+    Db.subscriptions ()
     >>> Result.iter ~f:(List.iter ~f:begin_checking_subscription)
   ;;
 
   (* Bot module *)
   let register () =
-    Db.Main.open_connection ();
+    Db.open_connection ();
     create_tables ();
     load_subscriptions ()
   ;;
 
-  let help () = "*RSS feeds*\n`fa [url]`\n`fr [url]`\n`fl`"
+  let help () = "*RSS feeds*\n`fa [url]` - add a feed\n`fr [url]` - remove a feed\n`fl` - list feeds"
 
   let on_command ~chat_id ~text =
     match text with

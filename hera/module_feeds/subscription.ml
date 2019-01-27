@@ -19,14 +19,14 @@ let send_content_if_needed content ~subscription ~send =
   | Some {title = Some title; link = Some link} ->
     Log.Global.info "Checking whether to send %s to %s" link subscription.subscriber_id;
     let sent_item = Types.{subscription_id = subscription.id; last_item_url = link} in
-    Db.Main.find_sent_item sent_item
+    Db.find_sent_item sent_item
     >>| Result.map_error ~f:(fun e -> `Db e)
     >>|? not
     >>|? Result.ok_if_true ~error:`Sent
     >>| Result.join
     >>=? (fun _ ->
            Log.Global.info "Sending %s to %s" link subscription.subscriber_id;
-           Db.Main.insert_sent_item sent_item >>| Result.map_error ~f:(fun e -> `Db e) )
+           Db.insert_sent_item sent_item >>| Result.map_error ~f:(fun e -> `Db e) )
     >>> Result.iter ~f:(fun _ -> send (sprintf "%s\n%s" title link))
   | _ -> ()
 ;;
@@ -107,14 +107,14 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
         ; feed_url }
     in
     let map_db_error e = `Db e in
-    Db.Main.find_subscription ~subscriber_id:subscription.subscriber_id ~feed_url
+    Db.find_subscription ~subscriber_id:subscription.subscriber_id ~feed_url
     >>| Result.map_error ~f:map_db_error
     >>|? not
     >>|? Result.ok_if_true ~error:`Result
     >>| Result.join
     >>=? (fun _ ->
            Log.Global.info "Adding subscription %s" feed_url;
-           Db.Main.insert_subscription subscription >>| Result.map_error ~f:map_db_error
+           Db.insert_subscription subscription >>| Result.map_error ~f:map_db_error
            )
     >>> Result.iter ~f:(fun () -> begin_checking_subscription subscription reply)
   | _ -> Log.Global.error "Invalid uri %s" feed_url
@@ -125,7 +125,7 @@ let remove_subscription ~subscriber_id ~feed_url ~reply =
     "Removing subscription %s for %s"
     feed_url
     (Int64.to_string subscriber_id);
-  Db.Main.delete_subscription ~subscriber_id:(Int64.to_string subscriber_id) ~feed_url
+  Db.delete_subscription ~subscriber_id:(Int64.to_string subscriber_id) ~feed_url
   >>> fun _ -> reply "Feed removed"
 ;;
 
@@ -138,5 +138,5 @@ let list_subscriptions ~reply =
     in
     reply text
   in
-  Db.Main.subscriptions () >>> Result.iter ~f:send_subscriptions
+  Db.subscriptions () >>> Result.iter ~f:send_subscriptions
 ;;
