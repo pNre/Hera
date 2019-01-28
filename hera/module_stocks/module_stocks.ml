@@ -42,7 +42,7 @@ module Dispatcher : Bot.Module.t = struct
       let path =
         symbol |> String.lowercase |> Uri.pct_encode |> sprintf "/1.0/stock/%s/price"
       in
-      Http.request `GET (uri path) [] ()
+      Http.request `GET (uri path) ()
       >>> (function
       | Ok (_, body) -> handle_stock_price_success chat_id body
       | Error _ -> handle_failure chat_id "/")
@@ -61,7 +61,7 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let get_symbols () =
-    Http.request `GET (uri "/1.0/ref-data/symbols") [] ()
+    Http.request `GET (uri "/1.0/ref-data/symbols") ()
     >>> function Ok (_, body) -> handle_symbols_success body | Error _ -> ()
   ;;
 

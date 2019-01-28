@@ -99,7 +99,7 @@ module Dispatcher : Bot.Module.t = struct
       ; "state", [Uri.pct_encode state]
       ; "country", [Uri.pct_encode country] ]
     in
-    Http.request `GET (uri "/v2/city" query) [] ()
+    Http.request `GET (uri "/v2/city" query) ()
     >>> function
     | Ok (_, body) -> handle_success chat_id body | Error _ -> handle_failure chat_id "/"
   ;;

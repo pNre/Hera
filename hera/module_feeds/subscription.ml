@@ -72,7 +72,7 @@ let begin_checking_subscription subscription send =
     | `Exn exn -> Exn.to_string exn
   in
   let check_for_new_entries () =
-    Http.request `GET (Uri.of_string subscription.feed_url) [] ()
+    Http.request `GET (Uri.of_string subscription.feed_url) ()
     >>|? (fun (_, body) -> Bigbuffer.contents body)
     >>| Result.map_error ~f:(fun err -> `Http err)
     >>| Result.bind ~f:(attempt_map_feed ~xmlbase:(Uri.of_string subscription.feed_url))

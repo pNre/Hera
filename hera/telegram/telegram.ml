@@ -113,7 +113,7 @@ let set_webhook url =
   let qs = ["url", [url]] in
   let path = sprintf "/bot%s/setWebhook" token in
   let uri = uri path qs in
-  Http.request `GET uri [] ()
+  Http.request `GET uri ()
 ;;
 
 let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
@@ -125,5 +125,5 @@ let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
   in
   let path = sprintf "/bot%s/sendMessage" token in
   let uri = uri path qs in
-  Http.request `GET uri [] ()
+  Http.request `GET uri ()
 ;;

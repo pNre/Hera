@@ -111,7 +111,7 @@ module Dispatcher : Bot.Module.t = struct
     let encoded_term = term |> String.lowercase |> Uri.pct_encode in
     let path = sprintf "/api/v1/entries/en/%s" encoded_term in
     let uri = Uri.make ~scheme:"https" ~host:"od-api.oxforddictionaries.com" ~path () in
-    let res = Http.request `GET uri http_headers () in
+    let res = Http.request `GET uri ~http_headers () in
     res
     >>> function
     | Ok (_, body) -> handle_success chat_id body

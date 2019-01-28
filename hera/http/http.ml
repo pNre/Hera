@@ -127,7 +127,7 @@ let rec perform_request req body max_redirects i =
   >>> function Ok _ -> () | Error exn -> Ivar.fill i (Error (Request (`Exn exn)))
 ;;
 
-let request http_method uri http_headers ?(body = None) ?(max_redirects = 3) () =
+let request http_method uri ?(http_headers = []) ?(body = None) ?(max_redirects = 3) () =
   let path = Uri.path uri in
   match Uri.host uri with
   | Some host ->
