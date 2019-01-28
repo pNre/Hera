@@ -42,8 +42,6 @@ module Dispatcher : Bot.Module.t = struct
   type retrieve_entry = {results : headword_entry list}
   [@@deriving of_yojson {strict = false}]
 
-  let host_and_port = Host_and_port.{host = "od-api.oxforddictionaries.com"; port = 443}
-
   let http_headers =
     ["app_id", Sys.getenv_exn "OXDICT_APP_ID"; "app_key", Sys.getenv_exn "OXDICT_APP_KEY"]
   ;;
@@ -112,14 +110,16 @@ module Dispatcher : Bot.Module.t = struct
   let search_term ~chat_id ~term =
     let encoded_term = term |> String.lowercase |> Uri.pct_encode in
     let path = sprintf "/api/v1/entries/en/%s" encoded_term in
-    let req = Http.{host_and_port; http_method = `GET; http_headers; path} in
-    let res = Http.request req () in
+    let uri = Uri.make ~scheme:"https" ~host:"od-api.oxforddictionaries.com" ~path () in
+    let res = Http.request `GET uri http_headers () in
     res
     >>> function
     | Ok (_, body) -> handle_success chat_id body
     | Error (Request _) -> handle_failure chat_id "request"
     | Error (Response (Response.({status; _}), _)) ->
       handle_failure chat_id (Status.to_string status)
+    | Error Format ->
+      handle_failure chat_id "Invalid request"
   ;;
 
   (* Bot module *)

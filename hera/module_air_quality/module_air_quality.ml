@@ -36,7 +36,7 @@ module Dispatcher : Bot.Module.t = struct
   [@@deriving of_yojson {strict = false}]
 
   let api_key = Sys.getenv_exn "AIRVISUAL_API_KEY"
-  let host_and_port = Host_and_port.{host = "api.airvisual.com"; port = 443}
+  let uri path query = Uri.make ~scheme:"https" ~host:"api.airvisual.com" ~path ~query ()
 
   let string_of_aqi = function
     | x when x <= 50 -> "Good"
@@ -93,17 +93,13 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let get_air_quality ~chat_id ~city ~state ~country =
-    let params =
+    let query =
       [ "key", [Uri.pct_encode api_key]
       ; "city", [Uri.pct_encode city]
       ; "state", [Uri.pct_encode state]
       ; "country", [Uri.pct_encode country] ]
     in
-    let qs = Uri.encoded_of_query params in
-    let path = "/v2/city?" ^ qs in
-    let req = Http.{host_and_port; http_method = `GET; http_headers = []; path} in
-    let res = Http.request req () in
-    res
+    Http.request `GET (uri "/v2/city" query) [] ()
     >>> function
     | Ok (_, body) -> handle_success chat_id body | Error _ -> handle_failure chat_id "/"
   ;;

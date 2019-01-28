@@ -3,17 +3,6 @@ open Core
 open Syndic
 open Types
 
-let get_feed_content s =
-  let uri = Uri.of_string s.feed_url in
-  let host = uri |> Uri.host |> fun host -> Option.value_exn host in
-  let default_port = if Uri.scheme uri = Some "https" then 443 else 80 in
-  let port = uri |> Uri.port |> Option.value ~default:default_port in
-  let host_and_port = Host_and_port.create ~host ~port in
-  let path = uri |> Uri.path in
-  let request = Http.{host_and_port; http_method = `GET; http_headers = []; path} in
-  Http.request request () >>|? fun (_, body) -> Bigbuffer.contents body
-;;
-
 let send_content_if_needed content ~subscription ~send =
   match content with
   | Some {title = Some title; link = Some link} ->
@@ -83,7 +72,8 @@ let begin_checking_subscription subscription send =
     | `Exn exn -> Exn.to_string exn
   in
   let check_for_new_entries () =
-    get_feed_content subscription
+    Http.request `GET (Uri.of_string subscription.feed_url) [] ()
+    >>|? (fun (_, body) -> Bigbuffer.contents body)
     >>| Result.map_error ~f:(fun err -> `Http err)
     >>| Result.bind ~f:(attempt_map_feed ~xmlbase:(Uri.of_string subscription.feed_url))
     >>|? latest_content_of_feed

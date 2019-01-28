@@ -8,7 +8,7 @@ module Dispatcher : Bot.Module.t = struct
   [@@deriving of_yojson {strict = false}]
 
   let symbols = ref []
-  let host_and_port = Host_and_port.{host = "api.iextrading.com"; port = 443}
+  let uri path = Uri.make ~scheme:"https" ~host:"api.iextrading.com" ~path ()
 
   let handle_failure chat_id err =
     Log.Global.error "%s" err;
@@ -42,11 +42,10 @@ module Dispatcher : Bot.Module.t = struct
       let path =
         symbol |> String.lowercase |> Uri.pct_encode |> sprintf "/1.0/stock/%s/price"
       in
-      let req = Http.{host_and_port; http_method = `GET; http_headers = []; path} in
-      let res = Http.request req () in
-      Deferred.upon res (function
-          | Ok (_, body) -> handle_stock_price_success chat_id body
-          | Error _ -> handle_failure chat_id "/" )
+      Http.request `GET (uri path) [] ()
+      >>> (function
+      | Ok (_, body) -> handle_stock_price_success chat_id body
+      | Error _ -> handle_failure chat_id "/")
     | None -> handle_failure chat_id ("No stocks found for " ^ stock)
   ;;
 
@@ -62,15 +61,8 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let get_symbols () =
-    let req =
-      Http.
-        { host_and_port
-        ; http_method = `GET
-        ; http_headers = []
-        ; path = "/1.0/ref-data/symbols" }
-    in
-    let res = Http.request req () in
-    res >>> function Ok (_, body) -> handle_symbols_success body | Error _ -> ()
+    Http.request `GET (uri "/1.0/ref-data/symbols") [] ()
+    >>> function Ok (_, body) -> handle_symbols_success body | Error _ -> ()
   ;;
 
   (* Bot module *)
