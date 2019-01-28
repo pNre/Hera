@@ -107,29 +107,23 @@ type parse_mode =
 
 let string_of_parse_mode mode = match mode with Markdown -> "Markdown" | HTML -> "HTML"
 let token = Sys.getenv_exn "TELEGRAM_BOT_TOKEN"
-
-let uri path =
-  let uri = Uri.of_string "https://api.telegram.org" in
-  Uri.with_path uri path
-;;
-
-let post path body = Http.request `POST (uri path) [] ~body ()
-let get path = Http.request `GET (uri path) [] ()
+let uri path query = Uri.make ~scheme:"https" ~host:"api.telegram.org" ~path ~query ()
 
 let set_webhook url =
-  let qs = Uri.encoded_of_query ["url", [url]] in
-  let path = sprintf "/bot%s/setWebhook?%s" token qs in
-  get path
+  let qs = ["url", [url]] in
+  let path = sprintf "/bot%s/setWebhook" token in
+  let uri = uri path qs in
+  Http.request `GET uri [] ()
 ;;
 
 let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
-  let qs =
-    Uri.encoded_of_query
-      [ "chat_id", [Int64.to_string chat_id]
-      ; "text", [text]
-      ; ( "parse_mode"
-        , [parse_mode |> Option.map ~f:string_of_parse_mode] |> List.filter_opt ) ]
+  let parse_mode =
+    [parse_mode |> Option.map ~f:string_of_parse_mode] |> List.filter_opt
   in
-  let path = sprintf "/bot%s/sendMessage?%s" token qs in
-  get path
+  let qs =
+    ["chat_id", [Int64.to_string chat_id]; "text", [text]; "parse_mode", parse_mode]
+  in
+  let path = sprintf "/bot%s/sendMessage" token in
+  let uri = uri path qs in
+  Http.request `GET uri [] ()
 ;;
