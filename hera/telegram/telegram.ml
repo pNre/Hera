@@ -1,5 +1,4 @@
 open Core
-open Httpaf
 
 type user =
   { id : int64
@@ -114,17 +113,7 @@ let uri path =
   Uri.with_path uri path
 ;;
 
-let post path body =
-  Http.request
-    `POST
-    (uri path)
-    []
-    ~on_write_body:(fun request_body ->
-      Body.write_string request_body body;
-      Body.close_writer request_body )
-    ()
-;;
-
+let post path body = Http.request `POST (uri path) [] ~body ()
 let get path = Http.request `GET (uri path) [] ()
 
 let set_webhook url =

@@ -77,7 +77,7 @@ let update_request_for_redirect req response_headers =
   | _ -> None
 ;;
 
-let rec perform_request req on_write_body max_redirects i =
+let rec perform_request req body max_redirects i =
   let response_handler i response response_body =
     match response with
     | {Response.status = `OK; _} ->
@@ -95,7 +95,7 @@ let rec perform_request req on_write_body max_redirects i =
           nreq.host
           nreq.path
           max_redirects;
-        perform_request nreq on_write_body (max_redirects - 1) i
+        perform_request nreq body (max_redirects - 1) i
       | None -> failwith "fixme")
     | {Response.status; _} ->
       Ivar.fill i (Error (Response (response, response_body)));
@@ -122,23 +122,18 @@ let rec perform_request req on_write_body max_redirects i =
             socket
             request
       in
-      on_write_body request_body )
+      Option.iter body ~f:(Body.write_string request_body);
+      Body.close_writer request_body )
   >>> function Ok _ -> () | Error exn -> Ivar.fill i (Error (Request (`Exn exn)))
 ;;
 
-let request
-    http_method
-    uri
-    http_headers
-    ?(on_write_body = Body.close_writer)
-    ?(max_redirects = 3)
-    () =
+let request http_method uri http_headers ?(body = None) ?(max_redirects = 3) () =
   let path = Uri.path uri in
   match Uri.host uri with
   | Some host ->
     let scheme = uri |> Uri.scheme |> Option.value ~default:"https" in
     let req = {http_method; scheme; host; path; http_headers} in
     Log.Global.info "Requesting %s" (Uri.to_string uri);
-    Deferred.create (perform_request req on_write_body max_redirects)
+    Deferred.create (perform_request req body max_redirects)
   | _ -> Deferred.return (Result.fail Format)
 ;;
