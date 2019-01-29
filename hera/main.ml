@@ -31,6 +31,7 @@ let main () =
   Dispatcher.register_modules ();
   Telegram.set_webhook (Sys.getenv_exn "WEBHOOK_URL")
   >>= (fun _ ->
+      Log.Global.info "Starting webserver";
       let where_to_listen = Tcp.Where_to_listen.of_port 8001 in
       Tcp.Server.create_sock ~on_handler_error:`Raise
         where_to_listen

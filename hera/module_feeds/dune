@@ -1,3 +1,4 @@
 (library
  (name module_feeds)
- (libraries async async_ssl httpaf httpaf-async syndic caqti caqti-async caqti-driver-sqlite3 bot))
+ (libraries async async_ssl httpaf httpaf-async caqti caqti-async caqti-driver-sqlite3 bot xmlm)
+ (preprocess (pps ppx_deriving.show)))

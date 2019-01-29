@@ -1,68 +1,23 @@
 open Async
 open Core
-open Syndic
 open Types
 
 let send_content_if_needed content ~subscription ~send =
+  let wrap_error e = `Db e in
   match content with
-  | Some {title = Some title; link = Some link} ->
-    Log.Global.info "Checking whether to send %s to %s" link subscription.subscriber_id;
+  | Some {title; link; _} ->
+    Log.Global.info "Checking whether to send %s to %s from %s" link subscription.subscriber_id subscription.feed_url;
     let sent_item = Types.{subscription_id = subscription.id; last_item_url = link} in
     Db.find_sent_item sent_item
-    >>| Result.map_error ~f:(fun e -> `Db e)
+    >>| Result.map_error ~f:wrap_error
     >>|? not
     >>|? Result.ok_if_true ~error:`Sent
     >>| Result.join
     >>=? (fun _ ->
            Log.Global.info "Sending %s to %s" link subscription.subscriber_id;
-           Db.insert_sent_item sent_item >>| Result.map_error ~f:(fun e -> `Db e) )
+           Db.insert_sent_item sent_item >>| Result.map_error ~f:wrap_error )
     >>> Result.iter ~f:(fun _ -> send (sprintf "%s\n%s" title link))
   | _ -> ()
-;;
-
-let content_of_rss1 (feed : Syndic.Rss1.item) =
-  {title = Some feed.title; link = Some (Uri.to_string feed.link)}
-;;
-
-let content_of_atom (feed : Syndic.Atom.entry) =
-  let title =
-    match feed.title with
-    | Text title | Html (_, title) -> title
-    | Xhtml _ -> "Unparsable title"
-  in
-  let link =
-    feed.links |> List.hd |> Option.map ~f:(fun l -> Uri.to_string l.Atom.href)
-  in
-  {title = Some title; link}
-;;
-
-let content_of_rss2 (feed : Syndic.Rss2.item) =
-  let title =
-    match feed.story with
-    | All (title, _, _) | Title title -> title
-    | Description _ -> "Unparsable title"
-  in
-  {title = Some title; link = feed.link |> Option.map ~f:Uri.to_string}
-;;
-
-let latest_content_of_feed = function
-  | `Rss1 rss1 -> rss1.Syndic.Rss1.item |> List.hd |> Option.map ~f:content_of_rss1
-  | `Rss2 rss2 -> rss2.Syndic.Rss2.items |> List.hd |> Option.map ~f:content_of_rss2
-  | `Atom atom -> atom.Syndic.Atom.entries |> List.hd |> Option.map ~f:content_of_atom
-;;
-
-let attempt_map_feed ~xmlbase content =
-  let make_input () = Xmlm.make_input (`String (0, content)) in
-  let parse_funs =
-    [ (fun input -> `Rss1 (Rss1.parse ~xmlbase input))
-    ; (fun input -> `Rss2 (Rss2.parse ~xmlbase input))
-    ; (fun input -> `Atom (Atom.parse ~xmlbase input)) ]
-  in
-  let rec parse = function
-    | f :: fs -> (try Ok (f (make_input ())) with _ -> parse fs)
-    | [] -> Error (`Parse ((0, 0), "Couldn't parse feed"))
-  in
-  parse parse_funs
 ;;
 
 let begin_checking_subscription subscription send =
@@ -75,8 +30,7 @@ let begin_checking_subscription subscription send =
     Http.request `GET (Uri.of_string subscription.feed_url) ()
     >>|? (fun (_, body) -> Bigbuffer.contents body)
     >>| Result.map_error ~f:(fun err -> `Http err)
-    >>| Result.bind ~f:(attempt_map_feed ~xmlbase:(Uri.of_string subscription.feed_url))
-    >>|? latest_content_of_feed
+    >>| Result.bind ~f:(Feed.parse ~xmlbase:(Uri.of_string subscription.feed_url))
     >>| Result.map ~f:(send_content_if_needed ~subscription ~send)
     >>| function
     | Ok _ -> ()
@@ -91,7 +45,7 @@ let begin_checking_subscription subscription send =
       Log.Global.error "Parse of feed %s failed -> %s" subscription.feed_url error_string
   in
   Log.Global.info "Starting subscription checking task for %s" subscription.feed_url;
-  let timespan = Time.Span.create ~min:10 () in
+  let timespan = Time.Span.create ~min:5 () in
   Clock.every' timespan check_for_new_entries
 ;;
 
