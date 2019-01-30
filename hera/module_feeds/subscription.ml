@@ -27,24 +27,19 @@ let send_content_if_needed content ~subscription ~send =
 ;;
 
 let begin_checking_subscription subscription send =
-  let string_of_request_error = function
-    | `Malformed_response err -> err
-    | `Invalid_response_body_length _ -> "Invalid response body length"
-    | `Exn exn -> String.prefix (Exn.to_string exn) 200
-  in
   let check_for_new_entries () =
     Http.request `GET (Uri.of_string subscription.feed_url) ()
-    >>|? (fun (_, body) -> Bigbuffer.contents body)
+    >>|? (fun (_, body) -> body)
     >>| Result.map_error ~f:(fun err -> `Http err)
     >>| Result.bind ~f:(Feed.parse ~xmlbase:(Uri.of_string subscription.feed_url))
     >>| Result.map ~f:(send_content_if_needed ~subscription ~send)
     >>| function
     | Ok _ -> ()
-    | Error (`Http (Request err)) ->
+    | Error (`Http (Request exn)) ->
       Logging.Module.error
         "Download of feed %s failed -> %s"
         subscription.feed_url
-        (string_of_request_error err)
+        (Exn.to_string exn)
     | Error (`Http _err) ->
       Logging.Module.error "Download of feed %s failed" subscription.feed_url
     | Error (`Parse (_, error_string)) ->

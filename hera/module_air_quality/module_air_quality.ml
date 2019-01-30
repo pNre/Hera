@@ -64,15 +64,17 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let handle_success chat_id body =
-    let result =
-      body |> Bigbuffer.contents |> Yojson.Safe.from_string |> response_of_yojson
-    in
+    let result = body |> Yojson.Safe.from_string |> response_of_yojson in
     match result with
     | Ok {status = _; data = city} ->
       let main = city.current.pollution.main in
       let aqi = city.current.pollution.aqi in
-      let temperature = city.current.weather.temperature |> Float.round_nearest |> Float.to_int in
-      let humidity = city.current.weather.humidity |> Float.round_nearest |> Float.to_int in
+      let temperature =
+        city.current.weather.temperature |> Float.round_nearest |> Float.to_int
+      in
+      let humidity =
+        city.current.weather.humidity |> Float.round_nearest |> Float.to_int
+      in
       let text =
         sprintf
           "Air quality in %s, %s\n\
@@ -127,7 +129,7 @@ module Dispatcher : Bot.Module.t = struct
   let register () = ()
   let help () = "*Air quality*\n`aq [city], [state], [country]`"
 
-  let on_update _reqd update =
+  let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
       when String.is_prefix t ~prefix:"aq " ->

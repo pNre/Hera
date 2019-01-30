@@ -1,6 +1,6 @@
 open Async
 open Core
-open Httpaf
+open Cohttp
 
 module Dispatcher : Bot.Module.t = struct
   type sense =
@@ -90,7 +90,7 @@ module Dispatcher : Bot.Module.t = struct
 
   let handle_success chat_id body =
     let result =
-      body |> Bigbuffer.contents |> Yojson.Safe.from_string |> retrieve_entry_of_yojson
+      body |> Yojson.Safe.from_string |> retrieve_entry_of_yojson
     in
     match result with
     | Ok {results} ->
@@ -115,9 +115,9 @@ module Dispatcher : Bot.Module.t = struct
     res
     >>> function
     | Ok (_, body) -> handle_success chat_id body
-    | Error (Request _) -> handle_failure chat_id "request"
+    | Error Request _ -> handle_failure chat_id "request"
     | Error (Response (Response.({status; _}), _)) ->
-      handle_failure chat_id (Status.to_string status)
+      handle_failure chat_id (Code.string_of_status status)
     | Error Format ->
       handle_failure chat_id "Invalid request"
   ;;
@@ -126,7 +126,7 @@ module Dispatcher : Bot.Module.t = struct
   let register () = ()
   let help () = "*English dictionary*\n`d [word]`"
 
-  let on_update _reqd update =
+  let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
       when String.is_prefix t ~prefix:"d " ->

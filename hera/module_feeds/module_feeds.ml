@@ -54,7 +54,7 @@ module Dispatcher : Bot.Module.t = struct
     | _ -> false
   ;;
 
-  let on_update _reqd update =
+  let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some text; _}; _} ->
       on_command ~chat_id ~text

@@ -1,4 +1,4 @@
 (library
  (name module_air_quality)
- (libraries async async_ssl httpaf httpaf-async yojson ppx_deriving_yojson.runtime bot logging)
+ (libraries async async_ssl yojson ppx_deriving_yojson.runtime bot logging)
  (preprocess (pps ppx_deriving_yojson)))

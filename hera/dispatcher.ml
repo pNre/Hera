@@ -1,5 +1,6 @@
 open Async
 open Core
+open Cohttp_async
 
 let modules =
   [ (module Module_dictionary.Dispatcher : Bot.Module.t)
@@ -13,9 +14,9 @@ let register m =
   M.register ()
 ;;
 
-let on_update m reqd update =
+let on_update m update =
   let module M = (val m : Bot.Module.t) in
-  M.on_update reqd update
+  M.on_update update
 ;;
 
 let register_modules () = List.iter modules ~f:register
@@ -28,15 +29,14 @@ let modules_help () =
   modules |> List.map ~f:module_help |> String.concat ~sep:"\n"
 ;;
 
-let dispatch reqd update =
-  Http.respond_with_status reqd `OK;
+let dispatch update =
   let handled =
-    List.fold_left modules ~init:false ~f:(fun handled m ->
-        on_update m reqd update || handled )
+    List.fold_left modules ~init:false ~f:(fun handled m -> on_update m update || handled)
   in
-  match handled, update with
+  (match handled, update with
   | false, {Telegram.message = Some {chat = {id = chat_id; _}; _}; _} ->
     let text = modules_help () in
     don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
-  | _ -> ()
+  | _ -> ());
+  Server.respond `OK
 ;;

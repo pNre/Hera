@@ -18,8 +18,7 @@ module Dispatcher : Bot.Module.t = struct
 
   (* Stock price *)
   let handle_stock_price_success chat_id body =
-    let value = Bigbuffer.contents body in
-    let text = sprintf "`%s`" value in
+    let text = sprintf "`%s`" body in
     don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
   ;;
 
@@ -52,7 +51,7 @@ module Dispatcher : Bot.Module.t = struct
   (* Symbols *)
   let handle_symbols_success body =
     try
-      let response = body |> Bigbuffer.contents |> Yojson.Safe.from_string in
+      let response = body |> Yojson.Safe.from_string in
       match response with
       | `List syms ->
         symbols := syms |> List.map ~f:symbol_of_yojson |> List.filter_map ~f:Result.ok
@@ -69,7 +68,7 @@ module Dispatcher : Bot.Module.t = struct
   let register () = get_symbols ()
   let help () = "*Stocks price*\n`s [symbol]`\n`s [company name]`"
 
-  let on_update _reqd update =
+  let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
       when String.is_prefix t ~prefix:"s " ->
