@@ -59,7 +59,8 @@ module Queries = struct
       select_subscription_type
       {| SELECT *
            FROM subscription
-           WHERE subscriber_id = ? |}
+           WHERE subscriber_id = ?
+           ORDER BY feed_url ASC |}
   ;;
 
   let subscriptions =
@@ -67,7 +68,8 @@ module Queries = struct
       Caqti_type.unit
       select_subscription_type
       {| SELECT *
-           FROM subscription |}
+           FROM subscription
+           ORDER BY feed_url ASC |}
   ;;
 
   let find_subscription =
