@@ -2,11 +2,17 @@ open Async
 open Core
 open Types
 
+let subscription_tasks = String.Table.create ~growth_allowed:true ()
+
 let send_content_if_needed content ~subscription ~send =
   let wrap_error e = `Db e in
   match content with
   | Some {title; link; _} ->
-    Logging.Module.info "Checking whether to send %s to %s from %s" link subscription.subscriber_id subscription.feed_url;
+    Logging.Module.info
+      "Checking whether to send %s to %s from %s"
+      link
+      subscription.subscriber_id
+      subscription.feed_url;
     let sent_item = Types.{subscription_id = subscription.id; last_item_url = link} in
     Db.find_sent_item sent_item
     >>| Result.map_error ~f:wrap_error
@@ -24,7 +30,7 @@ let begin_checking_subscription subscription send =
   let string_of_request_error = function
     | `Malformed_response err -> err
     | `Invalid_response_body_length _ -> "Invalid response body length"
-    | `Exn exn -> Exn.to_string exn
+    | `Exn exn -> String.prefix (Exn.to_string exn) 200
   in
   let check_for_new_entries () =
     Http.request `GET (Uri.of_string subscription.feed_url) ()
@@ -42,11 +48,28 @@ let begin_checking_subscription subscription send =
     | Error (`Http _err) ->
       Logging.Module.error "Download of feed %s failed" subscription.feed_url
     | Error (`Parse (_, error_string)) ->
-      Logging.Module.error "Parse of feed %s failed -> %s" subscription.feed_url error_string
+      Logging.Module.error
+        "Parse of feed %s failed -> %s"
+        subscription.feed_url
+        error_string
   in
   Logging.Module.info "Starting subscription checking task for %s" subscription.feed_url;
+  let key = key_of_subscription subscription in
+  let cancellation = Ivar.create () in
+  Hashtbl.set subscription_tasks ~key ~data:cancellation;
   let timespan = Time.Span.create ~min:5 () in
-  Clock.every' timespan check_for_new_entries
+  Clock.every'
+    ~stop:(Ivar.read cancellation)
+    ~continue_on_error:true
+    timespan
+    check_for_new_entries
+;;
+
+let stop_checking_subscription subscription =
+  subscription
+  |> key_of_subscription
+  |> Hashtbl.find_and_remove subscription_tasks
+  |> Option.iter ~f:(fun i -> Ivar.fill i ())
 ;;
 
 let add_subscription ~subscriber_id ~feed_url ~reply =
@@ -79,7 +102,10 @@ let remove_subscription ~subscriber_id ~feed_url ~reply =
     feed_url
     (Int64.to_string subscriber_id);
   Db.delete_subscription ~subscriber_id:(Int64.to_string subscriber_id) ~feed_url
-  >>> fun _ -> reply "Feed removed"
+  >>> fun _ ->
+  stop_checking_subscription
+    {id = 0; subscriber_id = Int64.to_string subscriber_id; type_id = ""; feed_url};
+  reply "Feed removed"
 ;;
 
 let list_subscriptions ~reply =
