@@ -15,14 +15,14 @@ let request_handler _ reqd =
     Http.read_body request_body
       (fun body ->
          let body_string = Bigbuffer.contents body in
-         Log.Global.info "%s" body_string;
+         Logging.Main.info "%s" body_string;
          let json = Yojson.Safe.from_string body_string in
          let update = Telegram.update_of_yojson json in
          match update with
          | Ok update ->
            Dispatcher.dispatch reqd update
          | Error err ->
-           Log.Global.error "Decoding -> %s" err;
+           Logging.Main.error "Decoding -> %s" err;
            Http.respond_with_status reqd `Internal_server_error)
   | _ ->
     Http.respond_with_status reqd `Not_found
@@ -31,7 +31,7 @@ let main () =
   Dispatcher.register_modules ();
   Telegram.set_webhook (Sys.getenv_exn "WEBHOOK_URL")
   >>= (fun _ ->
-      Log.Global.info "Starting webserver";
+      Logging.Main.info "Starting webserver";
       let where_to_listen = Tcp.Where_to_listen.of_port 8001 in
       Tcp.Server.create_sock ~on_handler_error:`Raise
         where_to_listen

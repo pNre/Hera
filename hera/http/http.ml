@@ -48,7 +48,7 @@ let request_headers req =
     [ "Connection", "close"
     ; "Host", req.host
     ; "Accept", "*/*"
-    ; "User-Agent", "curl/7.54.0" ]
+    ; "User-Agent", "hera/1.0" ]
   in
   let headers = List.append base_headers req.http_headers in
   Headers.of_list headers
@@ -60,14 +60,14 @@ let response_handler i response response_body =
     read_body response_body (fun body -> Ivar.fill i (Ok (response, body)))
   | {Response.status; _} ->
     Ivar.fill i (Error (Response (response, response_body)));
-    Log.Global.error "%s" (Status.to_string status)
+    Logging.Http.error "%s" (Status.to_string status)
 ;;
 
 let request_error req i err =
   let request_uri =
     Uri.make ~scheme:req.scheme ~host:req.host ~path:req.path ~query:req.query ()
   in
-  Log.Global.error "(%s) request failed" (Uri.to_string request_uri);
+  Logging.Http.error "(%s) request failed" (Uri.to_string request_uri);
   Ivar.fill i (Error (Request err))
 ;;
 
@@ -94,7 +94,7 @@ let rec perform_request req body max_redirects i =
   let response_handler i response response_body =
     match response with
     | {Response.status = `OK; _} ->
-      Log.Global.info "(%s) ok" (Uri.to_string request_uri);
+      Logging.Http.info "(%s) ok" (Uri.to_string request_uri);
       read_body response_body (fun body -> Ivar.fill i (Ok (response, body)))
     | {Response.status = `Found; headers; _}
     | {Response.status = `Moved_permanently; headers; _}
@@ -102,7 +102,7 @@ let rec perform_request req body max_redirects i =
       when Headers.mem headers "location" && max_redirects > 0 ->
       (match update_request_for_redirect req headers with
       | Some nreq ->
-        Log.Global.info
+        Logging.Http.info
           "(%s) redirecting to %s://%s%s (%d redirects left)"
           (Uri.to_string request_uri)
           nreq.scheme
@@ -112,15 +112,14 @@ let rec perform_request req body max_redirects i =
         perform_request nreq body (max_redirects - 1) i
       | None ->
         Ivar.fill i (Error (Response (response, response_body)));
-        Log.Global.error
+        Logging.Http.error
           "(%s) %s, invalid location %s"
           (Uri.to_string request_uri)
           (Status.to_string response.status)
           (Headers.get_exn response_headers "location"))
     | {Response.status; _} ->
       Ivar.fill i (Error (Response (response, response_body)));
-      read_body response_body (fun b -> Log.Global.info "%s" (Bigbuffer.contents b));
-      Log.Global.error
+      Logging.Http.error
         "(%s) %s, max_redirects = %d"
         (Uri.to_string request_uri)
         (Status.to_string status)
@@ -164,7 +163,7 @@ let request http_method uri ?(http_headers = []) ?(body = None) ?(max_redirects 
   | Some host ->
     let scheme = uri |> Uri.scheme |> Option.value ~default:"https" in
     let req = {http_method; scheme; host; path; query; http_headers} in
-    Log.Global.info "(%s) requesting" (Uri.to_string uri);
+    Logging.Http.debug "(%s) requesting" (Uri.to_string uri);
     Deferred.create (perform_request req body max_redirects)
   | _ -> Deferred.return (Result.fail Format)
 ;;

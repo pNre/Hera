@@ -11,7 +11,7 @@ module Dispatcher : Bot.Module.t = struct
   let uri path = Uri.make ~scheme:"https" ~host:"api.iextrading.com" ~path ()
 
   let handle_failure chat_id err =
-    Log.Global.error "%s" err;
+    Logging.Module.error "%s" err;
     let text = sprintf "No results (`%s`)" err in
     don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
   ;;

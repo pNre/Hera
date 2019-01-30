@@ -101,15 +101,18 @@ type update =
   ; callback_query : callback_query option [@default None] }
 [@@deriving of_yojson {strict = false}]
 
+let token = Sys.getenv_exn "TELEGRAM_BOT_TOKEN"
+
 type parse_mode =
   | Markdown
   | HTML
 
 let string_of_parse_mode mode = match mode with Markdown -> "Markdown" | HTML -> "HTML"
-let token = Sys.getenv_exn "TELEGRAM_BOT_TOKEN"
+
 let uri endpoint query =
   let path = "/bot" ^ token ^ "/" ^ endpoint in
   Uri.make ~scheme:"https" ~host:"api.telegram.org" ~path ~query ()
+;;
 
 let set_webhook url =
   let qs = ["url", [url]] in
@@ -118,11 +121,11 @@ let set_webhook url =
 ;;
 
 let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
-  let parse_mode =
-    [parse_mode |> Option.map ~f:string_of_parse_mode] |> List.filter_opt
-  in
+  let qs = ["chat_id", [Int64.to_string chat_id]; "text", [text]] in
   let qs =
-    ["chat_id", [Int64.to_string chat_id]; "text", [text]; "parse_mode", parse_mode]
+    match parse_mode with
+    | Some p -> List.Assoc.add qs ~equal:( = ) "parse_mode" [string_of_parse_mode p]
+    | None -> qs
   in
   let uri = uri "sendMessage" qs in
   Http.request `GET uri ()

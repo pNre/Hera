@@ -1,5 +1,4 @@
 (executable
  (name main)
  (public_name hera)
- (libraries async async_ssl httpaf httpaf-async yojson ppx_deriving_yojson.runtime uri http telegram bot module_dictionary module_stocks module_feeds module_air_quality)
- (preprocess (pps ppx_deriving_yojson)))
+ (libraries async async_ssl httpaf httpaf-async yojson uri http telegram bot module_dictionary module_stocks module_feeds module_air_quality logging))

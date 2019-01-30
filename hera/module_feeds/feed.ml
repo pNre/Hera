@@ -94,6 +94,6 @@ let parse_feed xmlbase input =
 
 let parse ~xmlbase content =
   let input = Xmlm.make_input (`String (0, content)) in
-  try Ok (parse_feed xmlbase input) with exn ->
-    Error (`Parse ((0, 0), sprintf "Couldn't parse feed, %s" (Exn.to_string exn)))
+  try Ok (parse_feed xmlbase input) with Xmlm.Error (_, error) ->
+    Error (`Parse ((0, 0), sprintf "Couldn't parse feed, %s" (Xmlm.error_message error)))
 ;;

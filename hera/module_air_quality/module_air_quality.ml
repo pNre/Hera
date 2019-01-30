@@ -4,12 +4,12 @@ open Core
 module Dispatcher : Bot.Module.t = struct
   type weather =
     { timestamp : string [@key "ts"]
-    ; temperature : int [@key "tp"]
-    ; pressure : int [@key "pr"]
-    ; humidity : int [@key "hu"]
-    ; wind_speed : int [@key "ws"]
-    ; wind_direction : int [@key "wd"]
-    ; ic : string }
+    ; temperature : float [@key "tp"]
+    ; pressure : float [@key "pr"]
+    ; humidity : float [@key "hu"]
+    ; wind_speed : float option [@key "ws"] [@default None]
+    ; wind_direction : float option [@key "wd"] [@default None]
+    ; ic : string option [@default None] }
   [@@deriving of_yojson {strict = false}]
 
   type pollution =
@@ -58,13 +58,12 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let handle_failure chat_id err =
-    Log.Global.error "%s" err;
+    Logging.Module.error "%s" err;
     let text = sprintf "No results (`%s`)" err in
     don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
   ;;
 
   let handle_success chat_id body =
-    Log.Global.info "%s" (Bigbuffer.contents body);
     let result =
       body |> Bigbuffer.contents |> Yojson.Safe.from_string |> response_of_yojson
     in
@@ -72,8 +71,8 @@ module Dispatcher : Bot.Module.t = struct
     | Ok {status = _; data = city} ->
       let main = city.current.pollution.main in
       let aqi = city.current.pollution.aqi in
-      let temperature = city.current.weather.temperature in
-      let humidity = city.current.weather.humidity in
+      let temperature = city.current.weather.temperature |> Float.round_nearest |> Float.to_int in
+      let humidity = city.current.weather.humidity |> Float.round_nearest |> Float.to_int in
       let text =
         sprintf
           "Air quality in %s, %s\n\
