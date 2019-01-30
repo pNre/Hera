@@ -1,3 +1,4 @@
+open Async
 open Core
 
 type user =
@@ -121,12 +122,30 @@ let set_webhook url =
 ;;
 
 let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
-  let qs = ["chat_id", [Int64.to_string chat_id]; "text", [text]] in
-  let qs =
-    match parse_mode with
-    | Some p -> List.Assoc.add qs ~equal:( = ) "parse_mode" [string_of_parse_mode p]
-    | None -> qs
+  let max_message_length = 4096 in
+  let send_message' text =
+    let qs = ["chat_id", [Int64.to_string chat_id]; "text", [text]] in
+    let qs =
+      match parse_mode with
+      | Some p -> List.Assoc.add qs ~equal:( = ) "parse_mode" [string_of_parse_mode p]
+      | None -> qs
+    in
+    let uri = uri "sendMessage" qs in
+    Http.request `GET uri ()
   in
-  let uri = uri "sendMessage" qs in
-  Http.request `GET uri ()
+  let rec split_and_send text =
+    if String.length text <= max_message_length
+    then [send_message' text]
+    else
+      let prefix = String.prefix text max_message_length in
+      match String.rsplit2 prefix ~on:'\n' with
+      | Some (text_to_send, rest) ->
+        send_message' text_to_send
+        :: split_and_send (rest ^ String.drop_prefix text max_message_length)
+      | None ->
+        send_message' prefix
+        :: split_and_send (String.drop_prefix text max_message_length)
+  in
+  (* should probably introduce some kind of retry logic *)
+  Deferred.Result.all (split_and_send text) >>| ignore
 ;;
