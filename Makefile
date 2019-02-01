@@ -8,4 +8,3 @@ all:
 
 clean:
 	dune clean
-	git clean -dfXq
