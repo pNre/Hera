@@ -42,8 +42,9 @@ module Dispatcher : Bot.Module.t = struct
         symbol |> String.lowercase |> Uri.pct_encode |> sprintf "/1.0/stock/%s/price"
       in
       Http.request `GET (uri path) ()
+      >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
       >>> (function
-      | Ok (_, body) -> handle_stock_price_success chat_id body
+      | Ok body -> handle_stock_price_success chat_id body
       | Error _ -> handle_failure chat_id "/")
     | None -> handle_failure chat_id ("No stocks found for " ^ stock)
   ;;
@@ -61,7 +62,8 @@ module Dispatcher : Bot.Module.t = struct
 
   let get_symbols () =
     Http.request `GET (uri "/1.0/ref-data/symbols") ()
-    >>> function Ok (_, body) -> handle_symbols_success body | Error _ -> ()
+    >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
+    >>> function Ok body -> handle_symbols_success body | Error _ -> ()
   ;;
 
   (* Bot module *)

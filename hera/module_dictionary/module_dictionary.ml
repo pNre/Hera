@@ -89,9 +89,7 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let handle_success chat_id body =
-    let result =
-      body |> Yojson.Safe.from_string |> retrieve_entry_of_yojson
-    in
+    let result = body |> Yojson.Safe.from_string |> retrieve_entry_of_yojson in
     match result with
     | Ok {results} ->
       results
@@ -111,15 +109,14 @@ module Dispatcher : Bot.Module.t = struct
     let encoded_term = term |> String.lowercase |> Uri.pct_encode in
     let path = sprintf "/api/v1/entries/en/%s" encoded_term in
     let uri = Uri.make ~scheme:"https" ~host:"od-api.oxforddictionaries.com" ~path () in
-    let res = Http.request `GET uri ~http_headers () in
-    res
+    Http.request `GET uri ~http_headers ()
+    >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
     >>> function
-    | Ok (_, body) -> handle_success chat_id body
-    | Error Request _ -> handle_failure chat_id "request"
+    | Ok body -> handle_success chat_id body
+    | Error (Request _) -> handle_failure chat_id "request"
     | Error (Response (Response.({status; _}), _)) ->
       handle_failure chat_id (Code.string_of_status status)
-    | Error Format ->
-      handle_failure chat_id "Invalid request"
+    | Error Format -> handle_failure chat_id "Invalid request"
   ;;
 
   (* Bot module *)

@@ -101,8 +101,9 @@ module Dispatcher : Bot.Module.t = struct
       ; "country", [Uri.pct_encode country] ]
     in
     Http.request `GET (uri "/v2/city" query) ()
+    >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
     >>> function
-    | Ok (_, body) -> handle_success chat_id body | Error _ -> handle_failure chat_id "/"
+    | Ok body -> handle_success chat_id body | Error _ -> handle_failure chat_id "/"
   ;;
 
   let resolve_known_city = function

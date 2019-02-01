@@ -9,10 +9,9 @@ let send_content_if_needed content ~subscription ~send =
   match content with
   | Some {title; link; _} ->
     Logging.Module.info
-      "Checking whether to send %s to %s from %s"
+      "Checking whether to send %s to %s"
       link
-      subscription.subscriber_id
-      subscription.feed_url;
+      subscription.subscriber_id;
     let sent_item = Types.{subscription_id = subscription.id; last_item_url = link} in
     Db.find_sent_item sent_item
     >>| Result.map_error ~f:wrap_error
@@ -29,7 +28,7 @@ let send_content_if_needed content ~subscription ~send =
 let begin_checking_subscription subscription send =
   let check_for_new_entries () =
     Http.request `GET (Uri.of_string subscription.feed_url) ()
-    >>|? (fun (_, body) -> body)
+    >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
     >>| Result.map_error ~f:(fun err -> `Http err)
     >>| Result.bind ~f:(Feed.parse ~xmlbase:(Uri.of_string subscription.feed_url))
     >>| Result.map ~f:(send_content_if_needed ~subscription ~send)

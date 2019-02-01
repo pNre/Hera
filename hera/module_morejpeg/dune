@@ -1,0 +1,3 @@
+(library
+ (name module_morejpeg)
+ (libraries async async_ssl camlimages.core camlimages.jpeg camlimages.png bot logging))

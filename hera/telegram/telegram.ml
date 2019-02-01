@@ -46,6 +46,13 @@ type message_entity =
   ; user : user option [@default None] }
 [@@deriving of_yojson {strict = false}]
 
+type photo_size =
+  { file_id : string
+  ; width : int
+  ; height : int
+  ; file_size : int option [@default None] }
+[@@deriving of_yojson {strict = false}]
+
 type message =
   { message_id : int64
   ; from : user
@@ -65,7 +72,8 @@ type message =
   ; caption : string option [@default None]
   ; new_chat_members : user list [@default []]
   ; left_chat_member : user option [@default None]
-  ; new_chat_title : string option [@default None] }
+  ; new_chat_title : string option [@default None]
+  ; photo : photo_size list [@default []] }
 [@@deriving of_yojson {strict = false}]
 
 type inline_query =
@@ -102,6 +110,12 @@ type update =
   ; callback_query : callback_query option [@default None] }
 [@@deriving of_yojson {strict = false}]
 
+type file =
+  { file_id : string
+  ; file_size : int option [@default None]
+  ; file_path : string option [@default None] }
+[@@deriving of_yojson {strict = false}]
+
 let token = Sys.getenv_exn "TELEGRAM_BOT_TOKEN"
 
 type parse_mode =
@@ -110,8 +124,11 @@ type parse_mode =
 
 let string_of_parse_mode mode = match mode with Markdown -> "Markdown" | HTML -> "HTML"
 
-let uri endpoint query =
-  let path = "/bot" ^ token ^ "/" ^ endpoint in
+let uri ?(base = "/") endpoint query =
+  let endpoint =
+    if String.is_prefix endpoint ~prefix:"/" then endpoint else "/" ^ endpoint
+  in
+  let path = base ^ "bot" ^ token ^ endpoint in
   Uri.make ~scheme:"https" ~host:"api.telegram.org" ~path ~query ()
 ;;
 
@@ -149,3 +166,75 @@ let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
   (* should probably introduce some kind of retry logic *)
   Deferred.Result.all (split_and_send text) >>| ignore
 ;;
+
+let get_file id =
+  let map_body body =
+    let json = body |> Yojson.Safe.from_string in
+    try json |> Yojson.Safe.Util.member "result" |> file_of_yojson with _ ->
+      Error "Invalid response"
+  in
+  let uri = uri "getFile" ["file_id", [id]] in
+  Http.request `GET uri ()
+  >>=? fun (response, body) ->
+  Http.string_of_body body
+  >>| map_body
+  >>| Result.map_error ~f:(fun _ -> Http.Response (response, body))
+;;
+
+let download_file path =
+  let uri = uri ~base:"/file/" path [] in
+  Http.request `GET uri ()
+;;
+
+let multipart_body ~fields ~name ~data ~filename ~mime ~boundary =
+  let boundary' = "--" ^ boundary in
+  let ending = boundary' ^ "--" in
+  let break = "\r\n" in
+  let fields =
+    fields
+    |> List.map ~f:(fun (name, value) ->
+           boundary'
+           ^ break
+           ^ "Content-Disposition: form-data; name=\""
+           ^ name
+           ^ "\""
+           ^ break
+           ^ break
+           ^ value
+           ^ break )
+    |> List.fold_right ~f:( ^ ) ~init:""
+  in
+  let data =
+    boundary'
+    ^ break
+    ^ "Content-Disposition: form-data; name=\""
+    ^ name
+    ^ "\"; filename=\""
+    ^ filename
+    ^ "\""
+    ^ break
+    ^ "Content-Type: "
+    ^ mime
+    ^ break
+    ^ break
+    ^ data
+    ^ break
+  in
+  fields ^ data ^ ending
+;;
+
+let send_photo ~chat_id ~photo ~filename =
+  let uri = uri "sendPhoto" [] in
+  let boundary = "--BoundaryFDGigsjIGGJEn" in
+  let body =
+    multipart_body
+      ~fields:["chat_id", Int64.to_string chat_id]
+      ~name:"photo"
+      ~data:photo
+      ~filename
+      ~mime:"image/jpg"
+      ~boundary
+  in
+  Http.request `POST uri ~http_headers:["Content-Type", "multipart/form-data; boundary=" ^ boundary] ~body:(Some body) ()
+;;
+
