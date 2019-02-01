@@ -86,7 +86,7 @@ module Dispatcher : Bot.Module.t = struct
         (Telegram.send_message ~chat_id ~text:"Send me a picture" () >>| ignore);
       true
     | {Telegram.message = Some {chat = {id = chat_id; _}; photo = photos; _}; _}
-      when !is_waiting_for_image = true -> process_photos chat_id photos
+      when !is_waiting_for_image -> process_photos chat_id photos
     | _ ->
       is_waiting_for_image := false;
       false
