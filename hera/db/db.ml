@@ -2,19 +2,25 @@ open Async
 open Caqti_async
 open Core
 
+(* Types *)
+module Types = struct
+  include Types
+end
+
 (* Queries *)
 module Queries = struct
   (* Types *)
   let select_subscription_type = Caqti_type.(tup4 int string string string)
   let insert_subscription_type = Caqti_type.(tup3 string string string)
   let sent_item_type = Caqti_type.(tup2 int string)
+  let preference_type = Caqti_type.(tup3 string string string)
 
   let subscription_of_result (id, subscriber_id, type_id, feed_url) =
-    Types.{id; subscriber_id; type_id; feed_url}
+    Types.Subscription.{id; subscriber_id; type_id; feed_url}
   ;;
 
   let sent_item_of_result (subscription_id, last_item_url) =
-    Types.{subscription_id; last_item_url}
+    Types.Sent_item.{subscription_id; last_item_url}
   ;;
 
   (* Initialization *)
@@ -43,12 +49,20 @@ module Queries = struct
     let sent_item_subscription =
       {| CREATE INDEX IF NOT EXISTS sent_item_subscription ON sent_item (subscription_id) |}
     in
+    let preferences =
+      {| CREATE TABLE IF NOT EXISTS "preference" (
+           "owner_id" VARCHAR(64) NOT NULL,
+           "key" VARCHAR(32) NOT NULL,
+           "value" TEXT DEFAULT NULL,
+           CONSTRAINT preference_un UNIQUE (owner_id, key)) |}
+    in
     [ enable_foreign_keys
     ; subscription
     ; subscription_subscriber_id_index
     ; subscription_feed_index
     ; sent_item
-    ; sent_item_subscription ]
+    ; sent_item_subscription
+    ; preferences ]
     |> List.map ~f:(Caqti_request.exec Caqti_type.unit)
   ;;
 
@@ -114,6 +128,40 @@ module Queries = struct
       {| SELECT COUNT(1)
            FROM sent_item
            WHERE subscription_id = ? AND last_item_url = ? |}
+  ;;
+
+  (* Preferences *)
+  let find_preference =
+    Caqti_request.find
+      Caqti_type.(tup2 string string)
+      preference_type
+      {| SELECT *
+           FROM preference
+           WHERE owner_id = ? AND key = ? |}
+  ;;
+
+  let preferences =
+    Caqti_request.collect
+      Caqti_type.string
+      preference_type
+      {| SELECT *
+           FROM preference
+           WHERE owner_id = ? |}
+  ;;
+
+  let insert_preference =
+    Caqti_request.exec
+      preference_type
+      {| INSERT INTO preference
+           (owner_id, key, value)
+           VALUES
+           (?, ?, ?) |}
+  ;;
+
+  let delete_preference =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      {| DELETE FROM preference WHERE owner_id = ? AND key = ? |}
   ;;
 end
 
@@ -186,9 +234,23 @@ let find_sent_item item =
   let sent_item' (module Connection : Caqti_async.CONNECTION) =
     Connection.find
       Queries.find_sent_item
-      Types.(item.subscription_id, item.last_item_url)
+      Types.Sent_item.(item.subscription_id, item.last_item_url)
   in
   with_connection sent_item' >>|? fun x -> x > 0
+;;
+
+let find_preference ~owner_id ~key =
+  let preference (module Connection : Caqti_async.CONNECTION) =
+    Connection.find Queries.find_preference (owner_id, key)
+  in
+  with_connection preference
+;;
+
+let preferences owner_id =
+  let preferences' (module Connection : Caqti_async.CONNECTION) =
+    Connection.collect_list Queries.preferences owner_id
+  in
+  with_connection preferences'
 ;;
 
 (* Insert *)
@@ -196,7 +258,7 @@ let insert_sent_item item =
   let insert (module Connection : Caqti_async.CONNECTION) =
     Connection.exec
       Queries.insert_sent_item
-      Types.(item.subscription_id, item.last_item_url)
+      Types.Sent_item.(item.subscription_id, item.last_item_url)
   in
   in_transaction insert
 ;;
@@ -205,7 +267,16 @@ let insert_subscription subscription =
   let insert (module Connection : Caqti_async.CONNECTION) =
     Connection.exec
       Queries.insert_subscription
-      Types.(subscription.subscriber_id, subscription.type_id, subscription.feed_url)
+      Types.Subscription.(
+        subscription.subscriber_id, subscription.type_id, subscription.feed_url)
+  in
+  in_transaction insert
+;;
+
+let insert_preference ~owner_id ~key ~value =
+  let insert (module Connection : Caqti_async.CONNECTION) =
+    Connection.exec Queries.delete_preference (owner_id, key)
+    >>=? fun _ -> Connection.exec Queries.insert_preference (owner_id, key, value)
   in
   in_transaction insert
 ;;
@@ -214,6 +285,13 @@ let insert_subscription subscription =
 let delete_subscription ~subscriber_id ~feed_url =
   let delete (module Connection : Caqti_async.CONNECTION) =
     Connection.exec Queries.delete_subscription (subscriber_id, feed_url)
+  in
+  in_transaction delete
+;;
+
+let delete_preference ~owner_id ~key =
+  let delete (module Connection : Caqti_async.CONNECTION) =
+    Connection.exec Queries.delete_preference (owner_id, key)
   in
   in_transaction delete
 ;;

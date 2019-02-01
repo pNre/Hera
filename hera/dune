@@ -1,4 +1,4 @@
 (executable
  (name main)
  (public_name hera)
- (libraries async async_ssl cohttp cohttp-async yojson uri http telegram bot module_dictionary module_stocks module_feeds module_air_quality module_morejpeg logging))
+ (libraries async async_ssl cohttp cohttp-async yojson uri http telegram bot logging db module_dictionary module_stocks module_feeds module_air_quality module_morejpeg module_preferences))

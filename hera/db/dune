@@ -1,0 +1,3 @@
+(library
+ (name db)
+ (libraries async caqti caqti-async caqti-driver-sqlite3 logging))

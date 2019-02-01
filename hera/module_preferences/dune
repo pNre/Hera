@@ -1,0 +1,3 @@
+(library
+ (name module_preferences)
+ (libraries async caqti caqti-async caqti-driver-sqlite3 db bot logging))

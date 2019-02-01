@@ -7,7 +7,8 @@ let modules =
   ; (module Module_stocks.Dispatcher : Bot.Module.t)
   ; (module Module_feeds.Dispatcher : Bot.Module.t)
   ; (module Module_air_quality.Dispatcher : Bot.Module.t)
-  ; (module Module_morejpeg.Dispatcher : Bot.Module.t) ]
+  ; (module Module_morejpeg.Dispatcher : Bot.Module.t)
+  ; (module Module_preferences.Dispatcher : Bot.Module.t) ]
 ;;
 
 let register m =
