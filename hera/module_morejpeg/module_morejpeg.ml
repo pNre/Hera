@@ -58,7 +58,7 @@ module Dispatcher : Bot.Module.t = struct
         >>= fun content ->
         match content with
         | Some photo ->
-          Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" >>| ignore
+          Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" ~mimetype:"image/jpg" >>| ignore
         | None -> Deferred.unit );
       true
     | None -> false

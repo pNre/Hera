@@ -193,7 +193,7 @@ let download_file path =
   Http.request `GET uri ()
 ;;
 
-let multipart_body ~fields ~name ~data ~filename ~mime ~boundary =
+let multipart_body ~fields ~name ~data ~filename ~mimetype ~boundary =
   let boundary = "--" ^ boundary in
   let ending = boundary ^ "--" in
   let fields =
@@ -220,7 +220,7 @@ let multipart_body ~fields ~name ~data ~filename ~mime ~boundary =
     ^ "\""
     ^ "\r\n"
     ^ "Content-Type: "
-    ^ mime
+    ^ mimetype
     ^ "\r\n"
     ^ "\r\n"
     ^ data
@@ -229,7 +229,7 @@ let multipart_body ~fields ~name ~data ~filename ~mime ~boundary =
   fields ^ data ^ ending
 ;;
 
-let send_photo ~chat_id ~photo ~filename =
+let send_photo ~chat_id ~photo ~filename ~mimetype =
   let uri = uri "sendPhoto" [] in
   let boundary = "--BoundaryFDGigsjIGGJEn" in
   let body =
@@ -238,7 +238,7 @@ let send_photo ~chat_id ~photo ~filename =
       ~name:"photo"
       ~data:photo
       ~filename
-      ~mime:"image/jpg"
+      ~mimetype
       ~boundary
   in
   Http.request
