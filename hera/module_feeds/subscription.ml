@@ -66,6 +66,17 @@ let stop_checking_subscription subscription =
   |> Option.iter ~f:(fun i -> Ivar.fill i ())
 ;;
 
+let validate_subscription feed_url =
+  Http.request `HEAD (Uri.of_string feed_url) ()
+  >>| function
+  | Ok (response, _) when Cohttp.Header.mem response.headers "content-length" ->
+    Cohttp.Header.get response.headers "content-length"
+    |> Option.map ~f:int_of_string_opt
+    |> Option.join
+    |> Option.value_map ~f:(fun x -> x < 1024 * 1024 * 10) ~default:false
+  | _ -> true
+;;
+
 let add_subscription ~subscriber_id ~feed_url ~reply =
   let feed_uri = Uri.of_string feed_url in
   match Uri.host feed_uri with
@@ -84,9 +95,18 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
     >>|? Result.ok_if_true ~error:`Result
     >>| Result.join
     >>=? (fun _ ->
-           Logging.Module.info "Adding subscription %s" feed_url;
-           Db.insert_subscription subscription >>| Result.map_error ~f:map_db_error )
-    >>> Result.iter ~f:(fun () -> begin_checking_subscription subscription reply)
+           validate_subscription feed_url
+           >>= function
+           | true ->
+             Logging.Module.info "Adding subscription %s" feed_url;
+             Db.insert_subscription subscription >>| Result.map_error ~f:map_db_error
+           | false -> Deferred.return (Result.fail `Too_big) )
+    >>> (function
+    | Ok _ -> begin_checking_subscription subscription reply
+    | Error `Too_big ->
+      don't_wait_for
+        (Telegram.send_message ~chat_id:subscriber_id ~text:"File too large" ())
+    | _ -> ())
   | _ -> Logging.Module.error "Invalid uri %s" feed_url
 ;;
 
@@ -105,7 +125,7 @@ let remove_subscription ~subscriber_id ~feed_url ~reply =
 let list_subscriptions ~subscriber_id ~reply =
   let send_subscriptions subscriptions =
     let text =
-      if List.is_empty subscriptions
+      if not (List.is_empty subscriptions)
       then
         subscriptions
         |> List.map ~f:(fun subscription -> subscription.feed_url)
