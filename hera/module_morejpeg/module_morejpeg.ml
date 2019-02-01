@@ -57,7 +57,8 @@ module Dispatcher : Bot.Module.t = struct
               ~default:(Deferred.return None)
         >>= fun content ->
         match content with
-        | Some photo -> Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" >>| ignore
+        | Some photo ->
+          Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" >>| ignore
         | None -> Deferred.unit );
       true
     | None -> false
@@ -65,7 +66,7 @@ module Dispatcher : Bot.Module.t = struct
 
   (* Bot module *)
   let register () = ()
-  let help () = "*More jpeg*\n`mj`"
+  let help () = "*More jpeg*\n`mj [quality]`"
 
   let on_update update =
     match update with
@@ -77,7 +78,9 @@ module Dispatcher : Bot.Module.t = struct
         |> String.split ~on:' '
         |> List.last
         |> Option.map ~f:Caml.String.trim
-        |> Option.map ~f:(fun quality -> min 100 (max 1 (int_of_string quality)))
+        |> Option.map ~f:int_of_string_opt
+        |> Option.join
+        |> Option.map ~f:(fun quality -> min 100 (max 1 quality))
         |> Option.value ~default:70;
       don't_wait_for
         (Telegram.send_message ~chat_id ~text:"Send me a picture" () >>| ignore);
