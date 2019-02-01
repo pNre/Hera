@@ -21,7 +21,7 @@ module Dispatcher : Bot.Module.t = struct
     let text = sprintf "`%s`" body in
     don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
   ;;
-  
+
   let stock_in_symbols predicate =
     let rec _stock_in_symbols symbols =
       match symbols with
@@ -36,17 +36,18 @@ module Dispatcher : Bot.Module.t = struct
   let stock_of_name name = stock_in_symbols (fun s -> String.Caseless.equal s.name name)
 
   let get_stock_price ~chat_id ~stock =
-    match Option.first_some (stock_of_name stock) (stock_of_symbol stock) with
-    | Some {symbol; _} ->
-      let path =
-        symbol |> String.lowercase |> Uri.pct_encode |> sprintf "/1.0/stock/%s/price"
-      in
-      Http.request `GET (uri path) ()
-      >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
-      >>> (function
-      | Ok body -> handle_stock_price_success chat_id body
-      | Error _ -> handle_failure chat_id "/")
-    | None -> handle_failure chat_id ("No stocks found for " ^ stock)
+    let symbol =
+      Option.first_some (stock_of_name stock) (stock_of_symbol stock)
+      |> Option.map ~f:(fun {symbol; _} -> symbol)
+      |> Option.value ~default:stock
+      |> String.lowercase
+    in
+    let path = symbol |> Uri.pct_encode |> sprintf "/1.0/stock/%s/price" in
+    Http.request `GET (uri path) ()
+    >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
+    >>> function
+    | Ok body -> handle_stock_price_success chat_id body
+    | Error _ -> handle_failure chat_id ("No stocks found for " ^ stock)
   ;;
 
   (* Symbols *)
