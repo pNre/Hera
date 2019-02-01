@@ -24,7 +24,7 @@ let request_handler ~body _ req =
 
 let main () =
   Dispatcher.register_modules ();
-  Telegram.set_webhook (Sys.getenv_exn "WEBHOOK_URL")
+  Telegram.set_webhook (Sys.getenv_exn "TELEGRAM_WEBHOOK_URL")
   >>= (fun _ ->
         Logging.Main.info "Starting webserver";
         Server.create
