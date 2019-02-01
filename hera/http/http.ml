@@ -28,7 +28,9 @@ let request http_method uri ?(http_headers = []) ?(body = None) ?(max_redirects 
       >>| Result.map_error ~f:(fun e -> Request e)
       >>=? function
       | ({status; _} as response), body when Code.is_success (Code.code_of_status status)
-      -> (response, body) |> Result.return |> Deferred.return
+      ->
+        Logging.Http.info "%s ok" (Uri.to_string uri);
+        (response, body) |> Result.return |> Deferred.return
       | ({status; headers; _} as response), body
         when Code.is_redirection (Code.code_of_status status) ->
         Logging.Http.info
