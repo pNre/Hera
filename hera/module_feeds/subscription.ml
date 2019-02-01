@@ -102,14 +102,18 @@ let remove_subscription ~subscriber_id ~feed_url ~reply =
   reply "Feed removed"
 ;;
 
-let list_subscriptions ~reply =
+let list_subscriptions ~subscriber_id ~reply =
   let send_subscriptions subscriptions =
     let text =
-      subscriptions
-      |> List.map ~f:(fun subscription -> subscription.feed_url)
-      |> String.concat ~sep:"\n"
+      if List.is_empty subscriptions
+      then
+        subscriptions
+        |> List.map ~f:(fun subscription -> subscription.feed_url)
+        |> String.concat ~sep:"\n"
+      else "No subscriptions"
     in
     reply text
   in
-  Db.subscriptions () >>> Result.iter ~f:send_subscriptions
+  Db.subscriptions_for_subscriber (Int64.to_string subscriber_id)
+  >>> Result.iter ~f:send_subscriptions
 ;;

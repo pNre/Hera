@@ -19,8 +19,7 @@ module Dispatcher : Bot.Module.t = struct
         subscription
         (reply (Int64.of_string subscription.subscriber_id))
     in
-    Db.subscriptions ()
-    >>> Result.iter ~f:(List.iter ~f:begin_checking_subscription)
+    Db.subscriptions () >>> Result.iter ~f:(List.iter ~f:begin_checking_subscription)
   ;;
 
   (* Bot module *)
@@ -30,7 +29,9 @@ module Dispatcher : Bot.Module.t = struct
     load_subscriptions ()
   ;;
 
-  let help () = "*RSS feeds*\n`fa [url]` - add a feed\n`fr [url]` - remove a feed\n`fl` - list feeds"
+  let help () =
+    "*RSS feeds*\n`fa [url]` - add a feed\n`fr [url]` - remove a feed\n`fl` - list feeds"
+  ;;
 
   let on_command ~chat_id ~text =
     match text with
@@ -49,7 +50,7 @@ module Dispatcher : Bot.Module.t = struct
         ~reply:(reply chat_id);
       true
     | t when String.is_prefix t ~prefix:"fl" ->
-      Subscription.list_subscriptions ~reply:(reply chat_id);
+      Subscription.list_subscriptions ~subscriber_id:chat_id ~reply:(reply chat_id);
       true
     | _ -> false
   ;;
