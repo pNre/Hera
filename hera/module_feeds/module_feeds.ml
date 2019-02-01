@@ -35,21 +35,21 @@ module Dispatcher : Bot.Module.t = struct
 
   let on_command ~chat_id ~text =
     match text with
-    | t when String.is_prefix t ~prefix:"fa " ->
-      let feed_url = String.chop_prefix_exn t ~prefix:"fa " in
+    | t when String.Caseless.is_prefix t ~prefix:"fa " ->
+      let feed_url = String.drop_prefix t 3 in
       Subscription.add_subscription
         ~subscriber_id:chat_id
         ~feed_url
         ~reply:(reply chat_id);
       true
-    | t when String.is_prefix t ~prefix:"fr " ->
-      let feed_url = String.chop_prefix_exn t ~prefix:"fr " in
+    | t when String.Caseless.is_prefix t ~prefix:"fr " ->
+      let feed_url = String.drop_prefix t 3 in
       Subscription.remove_subscription
         ~subscriber_id:chat_id
         ~feed_url
         ~reply:(reply chat_id);
       true
-    | t when String.is_prefix t ~prefix:"fl" ->
+    | t when String.Caseless.is_prefix t ~prefix:"fl" ->
       Subscription.list_subscriptions ~subscriber_id:chat_id ~reply:(reply chat_id);
       true
     | _ -> false

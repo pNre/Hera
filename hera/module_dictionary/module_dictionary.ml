@@ -126,8 +126,8 @@ module Dispatcher : Bot.Module.t = struct
   let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.is_prefix t ~prefix:"d " ->
-      let term = String.chop_prefix_exn t ~prefix:"d " in
+      when String.Caseless.is_prefix t ~prefix:"d " ->
+      let term = String.drop_prefix t 2 in
       search_term ~chat_id ~term;
       true
     | _ -> false

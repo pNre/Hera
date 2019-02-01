@@ -71,7 +71,7 @@ module Dispatcher : Bot.Module.t = struct
   let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.is_prefix t ~prefix:"mj" ->
+      when String.Caseless.is_prefix t ~prefix:"mj" ->
       is_waiting_for_image := true;
       quality :=
         t

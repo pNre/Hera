@@ -21,7 +21,7 @@ module Dispatcher : Bot.Module.t = struct
     let text = sprintf "`%s`" body in
     don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
   ;;
-
+  
   let stock_in_symbols predicate =
     let rec _stock_in_symbols symbols =
       match symbols with
@@ -73,8 +73,8 @@ module Dispatcher : Bot.Module.t = struct
   let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.is_prefix t ~prefix:"s " ->
-      let stock = String.chop_prefix_exn t ~prefix:"s " in
+      when String.Caseless.is_prefix t ~prefix:"s " ->
+      let stock = String.drop_prefix t 2 in
       get_stock_price ~chat_id ~stock;
       true
     | _ -> false

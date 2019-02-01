@@ -115,7 +115,6 @@ module Dispatcher : Bot.Module.t = struct
   let location_of_query q =
     let params =
       q
-      |> String.chop_prefix_exn ~prefix:"aq "
       |> String.split ~on:','
       |> List.map ~f:Caml.String.trim
       |> List.map ~f:String.lowercase
@@ -133,8 +132,8 @@ module Dispatcher : Bot.Module.t = struct
   let on_update update =
     match update with
     | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.is_prefix t ~prefix:"aq " ->
-      (match location_of_query t with
+      when String.Caseless.is_prefix t ~prefix:"aq " ->
+      (match location_of_query (String.drop_prefix t 3) with
       | Some (city, state, country) ->
         get_air_quality ~chat_id ~city ~state ~country;
         true
