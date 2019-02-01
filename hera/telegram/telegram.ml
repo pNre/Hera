@@ -138,14 +138,21 @@ let set_webhook url =
   Http.request `GET uri ()
 ;;
 
-let send_message ~chat_id ~text ?(parse_mode = Some Markdown) () =
+let send_message
+    ~chat_id ~text ?(parse_mode = Some Markdown) ?(disable_web_page_preview = false) () =
   let max_message_length = 4096 in
   let send_message' text =
-    let qs = ["chat_id", [Int64.to_string chat_id]; "text", [text]] in
+    let parse_mode =
+      parse_mode
+      |> Option.map ~f:string_of_parse_mode
+      |> Option.value_map ~f:List.return ~default:[]
+    in
     let qs =
-      match parse_mode with
-      | Some p -> List.Assoc.add qs ~equal:( = ) "parse_mode" [string_of_parse_mode p]
-      | None -> qs
+      [ "chat_id", [Int64.to_string chat_id]
+      ; "text", [text]
+      ; "disable_web_page_preview", [string_of_bool disable_web_page_preview]
+      ; "parse_mode", parse_mode ]
+      |> List.filter ~f:(fun (_, values) -> List.length values > 0)
     in
     let uri = uri "sendMessage" qs in
     Http.request `GET uri ()
@@ -235,6 +242,10 @@ let send_photo ~chat_id ~photo ~filename =
       ~mime:"image/jpg"
       ~boundary
   in
-  Http.request `POST uri ~http_headers:["Content-Type", "multipart/form-data; boundary=" ^ boundary] ~body:(Some body) ()
+  Http.request
+    `POST
+    uri
+    ~http_headers:["Content-Type", "multipart/form-data; boundary=" ^ boundary]
+    ~body:(Some body)
+    ()
 ;;
-
