@@ -20,3 +20,11 @@ The following env variables must to be set in order to run the bot:
 - `AIRVISUAL_API_KEY`: https://www.airvisual.com api key, to get air quality info
 - `OXDICT_APP_ID`, `OXDICT_APP_KEY`: https://oxforddictionaries.com app id and app key, to search the english dictionary
 - `DB_CONNECTION_STRING`: connection string for the sqlite3 database in which the bot modules store settings and other data
+
+#### Functionalities
+
+- RSS/Atom feed reader
+- English dictionary
+- Stocks price
+- Air quality by city
+- _More jpeg_
