@@ -194,38 +194,37 @@ let download_file path =
 ;;
 
 let multipart_body ~fields ~name ~data ~filename ~mime ~boundary =
-  let boundary' = "--" ^ boundary in
-  let ending = boundary' ^ "--" in
-  let break = "\r\n" in
+  let boundary = "--" ^ boundary in
+  let ending = boundary ^ "--" in
   let fields =
     fields
     |> List.map ~f:(fun (name, value) ->
-           boundary'
-           ^ break
+           boundary
+           ^ "\r\n"
            ^ "Content-Disposition: form-data; name=\""
            ^ name
            ^ "\""
-           ^ break
-           ^ break
+           ^ "\r\n"
+           ^ "\r\n"
            ^ value
-           ^ break )
-    |> List.fold_right ~f:( ^ ) ~init:""
+           ^ "\r\n" )
+    |> String.concat ~sep:""
   in
   let data =
-    boundary'
-    ^ break
+    boundary
+    ^ "\r\n"
     ^ "Content-Disposition: form-data; name=\""
     ^ name
     ^ "\"; filename=\""
     ^ filename
     ^ "\""
-    ^ break
+    ^ "\r\n"
     ^ "Content-Type: "
     ^ mime
-    ^ break
-    ^ break
+    ^ "\r\n"
+    ^ "\r\n"
     ^ data
-    ^ break
+    ^ "\r\n"
   in
   fields ^ data ^ ending
 ;;
