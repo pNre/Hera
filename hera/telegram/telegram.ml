@@ -133,7 +133,7 @@ let uri ?(base = "/") endpoint query =
 ;;
 
 let set_webhook url =
-  let qs = ["url", [url]] in
+  let qs = ["url", [Uri.to_string url]] in
   let uri = uri "setWebhook" qs in
   Http.request `GET uri ()
 ;;

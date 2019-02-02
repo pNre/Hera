@@ -8,7 +8,7 @@ let failure_handler _socket exn =
 
 let request_handler ~body _ req =
   match req, Request.uri req |> Uri.path with
-  | {Request.meth = `POST; _}, "/" ->
+  | {Request.meth = `POST; _}, path when path = "/" ^ Telegram.token ->
     Body.to_string body
     >>= fun body ->
     Logging.Main.info "%s" body;
@@ -24,7 +24,11 @@ let request_handler ~body _ req =
 
 let main () =
   Dispatcher.register_modules ();
-  Telegram.set_webhook (Sys.getenv_exn "TELEGRAM_WEBHOOK_URL")
+  Sys.getenv_exn "TELEGRAM_WEBHOOK_URL"
+  |> Uri.of_string
+  |> fun uri ->
+  Uri.with_path uri ("/" ^ Telegram.token)
+  |> Telegram.set_webhook
   >>= (fun _ ->
         Logging.Main.info "Starting webserver";
         Server.create
