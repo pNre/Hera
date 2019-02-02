@@ -15,7 +15,7 @@ module Dispatcher : Bot.Module.t = struct
         Telegram.send_message ~chat_id ~text ()
       | Ok _ -> Telegram.send_message ~chat_id ~text:"No preferences" ()
       | Error e ->
-        Logging.Module.error "%s" (Caqti_error.show e);
+        Logging.Module.error "%s" (Db.string_of_error e);
         Deferred.unit )
   ;;
 
@@ -42,7 +42,7 @@ module Dispatcher : Bot.Module.t = struct
         Logging.Module.error
           "Couldn't delete preference %s -> %s"
           key
-          (Caqti_error.show e);
+          (Db.string_of_error e);
         Deferred.unit )
   ;;
 
