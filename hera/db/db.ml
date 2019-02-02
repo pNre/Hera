@@ -89,8 +89,8 @@ module Queries = struct
   let find_subscription =
     Caqti_request.find
       Caqti_type.(tup2 string string)
-      Caqti_type.int
-      {| SELECT COUNT(1)
+      select_subscription_type
+      {| SELECT *
            FROM subscription
            WHERE subscriber_id = ? AND feed_url = ? |}
   ;;
@@ -192,6 +192,8 @@ let in_transaction fn =
   with_connection in_transaction'
 ;;
 
+let string_of_error = Caqti_error.show
+
 (* Database initialization *)
 let create_tables () =
   let ignore_result_values results =
@@ -225,9 +227,9 @@ let subscriptions () =
 
 let find_subscription ~subscriber_id ~feed_url =
   let subscription (module Connection : Caqti_async.CONNECTION) =
-    Connection.find Queries.find_subscription (subscriber_id, feed_url)
+    Connection.find_opt Queries.find_subscription (subscriber_id, feed_url)
   in
-  with_connection subscription >>|? fun x -> x > 0
+  with_connection subscription >>|? Option.map ~f:Queries.subscription_of_result
 ;;
 
 let find_sent_item item =

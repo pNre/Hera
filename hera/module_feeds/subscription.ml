@@ -13,7 +13,9 @@ let send_content_if_needed content ~subscription ~send =
       "Checking whether to send %s to %s"
       link
       subscription.Subscription.subscriber_id;
-    let sent_item = Sent_item.{subscription_id = subscription.id; last_item_url = link} in
+    let sent_item =
+      Sent_item.{subscription_id = subscription.id; last_item_url = link}
+    in
     Db.find_sent_item sent_item
     >>| Result.map_error ~f:wrap_error
     >>|? not
@@ -75,38 +77,37 @@ let validate_subscription feed_url =
     |> Option.map ~f:int_of_string_opt
     |> Option.join
     |> Option.value_map ~f:(fun x -> x < 1024 * 1024 * 10) ~default:false
-  | _ -> true
+    |> Result.ok_if_true ~error:`Too_big
+  | _ -> Result.ok_unit
 ;;
 
 let add_subscription ~subscriber_id ~feed_url ~reply =
   let feed_uri = Uri.of_string feed_url in
   match Uri.host feed_uri with
   | Some _ ->
-    let subscription =
-      Subscription.
-        { id = 0
-        ; subscriber_id = Int64.to_string subscriber_id
-        ; type_id = "Telegram"
-        ; feed_url }
-    in
+    let subscriber_id = Int64.to_string subscriber_id in
     let map_db_error e = `Db e in
-    Db.find_subscription ~subscriber_id:subscription.subscriber_id ~feed_url
+    Db.find_subscription ~subscriber_id ~feed_url
     >>| Result.map_error ~f:map_db_error
-    >>|? not
-    >>|? Result.ok_if_true ~error:`Result
+    >>| Result.map
+          ~f:(Option.value_map ~f:(fun _ -> Error `Result) ~default:Result.ok_unit)
     >>| Result.join
+    >>=? (fun _ -> validate_subscription feed_url)
     >>=? (fun _ ->
-           validate_subscription feed_url
-           >>= function
-           | true ->
-             Logging.Module.info "Adding subscription %s" feed_url;
-             Db.insert_subscription subscription >>| Result.map_error ~f:map_db_error
-           | false -> Deferred.return (Result.fail `Too_big) )
+           Subscription.{id = 0; subscriber_id; type_id = "Telegram"; feed_url}
+           |> Db.insert_subscription
+           >>| Result.map_error ~f:map_db_error )
+    >>=? (fun _ ->
+           Db.find_subscription ~subscriber_id ~feed_url
+           >>| Result.map_error ~f:map_db_error )
     >>> (function
-    | Ok _ -> begin_checking_subscription subscription reply
+    | Ok (Some subscription) -> begin_checking_subscription subscription reply
     | Error `Too_big ->
       don't_wait_for
-        (Telegram.send_message ~chat_id:subscriber_id ~text:"File too large" ())
+        (Telegram.send_message
+           ~chat_id:(Int64.of_string subscriber_id)
+           ~text:"File too large"
+           ())
     | _ -> ())
   | _ -> Logging.Module.error "Invalid uri %s" feed_url
 ;;
