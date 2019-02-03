@@ -15,7 +15,9 @@ let request_handler ~body _ req =
     let json = Yojson.Safe.from_string body in
     let update = Telegram.update_of_yojson json in
     (match update with
-    | Ok update -> Dispatcher.dispatch update
+    | Ok update ->
+      Dispatcher.dispatch update;
+      Server.respond `OK
     | Error err ->
       Logging.Main.error "Decoding -> %s" err;
       Server.respond `Internal_server_error)

@@ -1,6 +1,5 @@
 open Async
 open Core
-open Cohttp_async
 
 let modules =
   [ (module Module_dictionary.Dispatcher : Bot.Module.t)
@@ -35,10 +34,9 @@ let dispatch update =
   let handled =
     List.fold_left modules ~init:false ~f:(fun handled m -> on_update m update || handled)
   in
-  (match handled, update with
+  match handled, update with
   | false, {Telegram.message = Some {chat = {id = chat_id; _}; _}; _} ->
     let text = modules_help () in
     don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
-  | _ -> ());
-  Server.respond `OK
+  | _ -> ()
 ;;
