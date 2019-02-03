@@ -33,32 +33,23 @@ module Dispatcher : Bot.Module.t = struct
     "*RSS feeds*\n`fa [url]` - add a feed\n`fr [url]` - remove a feed\n`fl` - list feeds"
   ;;
 
-  let on_command ~chat_id ~text =
-    match text with
-    | t when String.Caseless.is_prefix t ~prefix:"fa " ->
-      let feed_url = String.drop_prefix t 3 in
+  let on_update update =
+    match Telegram.parse_update update with
+    | `Command ("fa", feed_url :: _, chat_id, _) ->
       Subscription.add_subscription
         ~subscriber_id:chat_id
         ~feed_url
         ~reply:(reply chat_id);
       true
-    | t when String.Caseless.is_prefix t ~prefix:"fr " ->
-      let feed_url = String.drop_prefix t 3 in
+    | `Command ("fr", feed_url :: _, chat_id, _) ->
       Subscription.remove_subscription
         ~subscriber_id:chat_id
         ~feed_url
         ~reply:(reply chat_id);
       true
-    | t when String.Caseless.is_prefix t ~prefix:"fl" ->
+    | `Command ("fl", _, chat_id, _) ->
       Subscription.list_subscriptions ~subscriber_id:chat_id ~reply:(reply chat_id);
       true
-    | _ -> false
-  ;;
-
-  let on_update update =
-    match update with
-    | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some text; _}; _} ->
-      on_command ~chat_id ~text
     | _ -> false
   ;;
 end

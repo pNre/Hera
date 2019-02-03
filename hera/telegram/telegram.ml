@@ -248,3 +248,18 @@ let send_photo ~chat_id ~photo ~filename ~mimetype =
     ~body:(Some body)
     ()
 ;;
+
+(* Utils *)
+let parse_update update =
+  match update with
+  | {message = Some {chat = {id = chat_id; _}; text = Some t; _}; _} ->
+    (match String.split t ~on:' ' with
+    | command :: args ->
+      let command = command |> Caml.String.trim |> String.lowercase in
+      let args = args |> List.map ~f:Caml.String.trim in
+      `Command (command, args, chat_id, update)
+    | _ -> `Unknown)
+  | {message = Some {chat = {id = chat_id; _}; photo = photos; _}; _} when not (List.is_empty photos) ->
+    `Photos (photos, chat_id, update)
+  | _ -> `Unknown
+;;

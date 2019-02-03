@@ -58,7 +58,8 @@ module Dispatcher : Bot.Module.t = struct
         >>= fun content ->
         match content with
         | Some photo ->
-          Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" ~mimetype:"image/jpg" >>| ignore
+          Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" ~mimetype:"image/jpg"
+          >>| ignore
         | None -> Deferred.unit );
       true
     | None -> false
@@ -69,13 +70,11 @@ module Dispatcher : Bot.Module.t = struct
   let help () = "*More jpeg*\n`mj [quality]`"
 
   let on_update update =
-    match update with
-    | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.Caseless.is_prefix t ~prefix:"mj" ->
+    match Telegram.parse_update update with
+    | `Command ("mj", args, chat_id, _) ->
       is_waiting_for_image := true;
       quality :=
-        t
-        |> String.split ~on:' '
+        args
         |> List.last
         |> Option.map ~f:Caml.String.trim
         |> Option.map ~f:int_of_string_opt
@@ -85,8 +84,8 @@ module Dispatcher : Bot.Module.t = struct
       don't_wait_for
         (Telegram.send_message ~chat_id ~text:"Send me a picture" () >>| ignore);
       true
-    | {Telegram.message = Some {chat = {id = chat_id; _}; photo = photos; _}; _}
-      when !is_waiting_for_image -> process_photos chat_id photos
+    | `Photos (photos, chat_id, _) when !is_waiting_for_image ->
+      process_photos chat_id photos
     | _ ->
       is_waiting_for_image := false;
       false

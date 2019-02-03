@@ -72,10 +72,8 @@ module Dispatcher : Bot.Module.t = struct
   let help () = "*Stocks price*\n`s [symbol]`\n`s [company name]`"
 
   let on_update update =
-    match update with
-    | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.Caseless.is_prefix t ~prefix:"s " ->
-      let stock = String.drop_prefix t 2 in
+    match Telegram.parse_update update with
+    | `Command ("s", stock :: _, chat_id, _) ->
       get_stock_price ~chat_id ~stock;
       true
     | _ -> false

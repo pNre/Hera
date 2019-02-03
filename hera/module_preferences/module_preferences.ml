@@ -19,18 +19,14 @@ module Dispatcher : Bot.Module.t = struct
         Deferred.unit )
   ;;
 
-  let set_preference chat_id params =
-    match params with
-    | [key; value] ->
-      don't_wait_for
-        ( Db.insert_preference ~owner_id:(Int64.to_string chat_id) ~key ~value
-        >>= function
-        | Ok _ -> Telegram.send_message ~chat_id ~text:"Preference saved" () >>| ignore
-        | Error _ ->
-          Logging.Module.error "Couldn't save preference %s" key;
-          Deferred.unit );
-      true
-    | _ -> false
+  let set_preference chat_id key value =
+    don't_wait_for
+      ( Db.insert_preference ~owner_id:(Int64.to_string chat_id) ~key ~value
+      >>= function
+      | Ok _ -> Telegram.send_message ~chat_id ~text:"Preference saved" () >>| ignore
+      | Error _ ->
+        Logging.Module.error "Couldn't save preference %s" key;
+        Deferred.unit )
   ;;
 
   let delete_preference chat_id key =
@@ -57,17 +53,15 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let on_update update =
-    match update with
-    | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.Caseless.is_prefix t ~prefix:"pl" ->
+    match Telegram.parse_update update with
+    | `Command ("pl", _, chat_id, _) ->
       list_preferences chat_id;
       true
-    | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.Caseless.is_prefix t ~prefix:"ps " ->
-      set_preference chat_id (String.drop_prefix t 3 |> String.split ~on:' ')
-    | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.Caseless.is_prefix t ~prefix:"pd " ->
-      delete_preference chat_id (String.drop_prefix t 3 |> Caml.String.trim);
+    | `Command ("ps", key :: value :: _, chat_id, _) ->
+      set_preference chat_id key value;
+      true
+    | `Command ("pd", key :: _, chat_id, _) ->
+      delete_preference chat_id key;
       true
     | _ -> false
   ;;

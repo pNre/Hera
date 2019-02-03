@@ -112,13 +112,8 @@ module Dispatcher : Bot.Module.t = struct
     | _ -> None
   ;;
 
-  let location_of_query q =
-    let params =
-      q
-      |> String.split ~on:','
-      |> List.map ~f:Caml.String.trim
-      |> List.map ~f:String.lowercase
-    in
+  let location_of_args args =
+    let params = args |> List.map ~f:Caml.String.trim |> List.map ~f:String.lowercase in
     match params with
     | city :: state :: country :: _ -> Some (city, state, country)
     | [known_city] -> resolve_known_city known_city
@@ -127,13 +122,12 @@ module Dispatcher : Bot.Module.t = struct
 
   (* Bot module *)
   let register () = ()
-  let help () = "*Air quality*\n`aq [city], [state], [country]`"
+  let help () = "*Air quality*\n`aq [city] [state] [country]`"
 
   let on_update update =
-    match update with
-    | {Telegram.message = Some {chat = {id = chat_id; _}; text = Some t; _}; _}
-      when String.Caseless.is_prefix t ~prefix:"aq " ->
-      (match location_of_query (String.drop_prefix t 3) with
+    match Telegram.parse_update update with
+    | `Command ("aq", args, chat_id, _) ->
+      (match location_of_args args with
       | Some (city, state, country) ->
         get_air_quality ~chat_id ~city ~state ~country;
         true
