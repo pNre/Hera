@@ -13,17 +13,15 @@ let send_content_if_needed content ~subscription ~send =
       "Checking whether to send %s to %s"
       link
       subscription.Subscription.subscriber_id;
-    let sent_item =
-      Sent_item.{subscription_id = subscription.id; last_item_url = link}
-    in
-    Db.find_sent_item sent_item
+    Db.find_sent_item ~subscription_id:subscription.id ~last_item_url:link
     >>| Result.map_error ~f:wrap_error
     >>|? not
     >>|? Result.ok_if_true ~error:`Sent
     >>| Result.join
     >>=? (fun _ ->
            Logging.Module.info "Sending %s to %s" link subscription.subscriber_id;
-           Db.insert_sent_item sent_item >>| Result.map_error ~f:wrap_error )
+           Db.insert_sent_item ~subscription_id:subscription.id ~last_item_url:link
+           >>| Result.map_error ~f:wrap_error )
     >>> Result.iter ~f:(fun _ -> send (sprintf "%s\n\n%s" title link))
   | _ -> ()
 ;;
@@ -37,13 +35,11 @@ let begin_checking_subscription subscription send =
     >>| Result.map ~f:(send_content_if_needed ~subscription ~send)
     >>| function
     | Ok _ -> ()
-    | Error (`Http (Request exn)) ->
+    | Error (`Http err) ->
       Logging.Module.error
         "Download of feed %s failed -> %s"
         subscription.feed_url
-        (Exn.to_string exn)
-    | Error (`Http _err) ->
-      Logging.Module.error "Download of feed %s failed" subscription.feed_url
+        (Http.string_of_error err)
     | Error (`Parse (_, error_string)) ->
       Logging.Module.error
         "Parse of feed %s failed -> %s"
@@ -94,8 +90,7 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
     >>| Result.join
     >>=? (fun _ -> validate_subscription feed_url)
     >>=? (fun _ ->
-           Subscription.{id = 0; subscriber_id; type_id = "Telegram"; feed_url}
-           |> Db.insert_subscription
+           Db.insert_subscription ~subscriber_id ~type_id:"" ~feed_url
            >>| Result.map_error ~f:map_db_error )
     >>=? (fun _ ->
            Db.find_subscription ~subscriber_id ~feed_url
@@ -113,14 +108,11 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
 ;;
 
 let remove_subscription ~subscriber_id ~feed_url ~reply =
-  Logging.Module.info
-    "Removing subscription %s for %s"
-    feed_url
-    (Int64.to_string subscriber_id);
-  Db.delete_subscription ~subscriber_id:(Int64.to_string subscriber_id) ~feed_url
+  let subscriber_id = Int64.to_string subscriber_id in
+  Logging.Module.info "Removing subscription %s for %s" feed_url subscriber_id;
+  Db.delete_subscription ~subscriber_id ~feed_url
   >>> fun _ ->
-  stop_checking_subscription
-    {id = 0; subscriber_id = Int64.to_string subscriber_id; type_id = ""; feed_url};
+  stop_checking_subscription (Subscription.make ~subscriber_id ~feed_url ());
   reply "Feed removed"
 ;;
 

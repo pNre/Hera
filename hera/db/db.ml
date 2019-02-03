@@ -16,11 +16,11 @@ module Queries = struct
   let preference_type = Caqti_type.(tup3 string string string)
 
   let subscription_of_result (id, subscriber_id, type_id, feed_url) =
-    Types.Subscription.{id; subscriber_id; type_id; feed_url}
+    Types.Subscription.make ~id ~subscriber_id ~type_id ~feed_url ()
   ;;
 
   let sent_item_of_result (subscription_id, last_item_url) =
-    Types.Sent_item.{subscription_id; last_item_url}
+    Types.Sent_item.make ~subscription_id ~last_item_url
   ;;
 
   (* Initialization *)
@@ -232,11 +232,9 @@ let find_subscription ~subscriber_id ~feed_url =
   with_connection subscription >>|? Option.map ~f:Queries.subscription_of_result
 ;;
 
-let find_sent_item item =
+let find_sent_item ~subscription_id ~last_item_url =
   let sent_item' (module Connection : Caqti_async.CONNECTION) =
-    Connection.find
-      Queries.find_sent_item
-      Types.Sent_item.(item.subscription_id, item.last_item_url)
+    Connection.find Queries.find_sent_item (subscription_id, last_item_url)
   in
   with_connection sent_item' >>|? fun x -> x > 0
 ;;
@@ -256,21 +254,16 @@ let preferences owner_id =
 ;;
 
 (* Insert *)
-let insert_sent_item item =
+let insert_sent_item ~subscription_id ~last_item_url =
   let insert (module Connection : Caqti_async.CONNECTION) =
-    Connection.exec
-      Queries.insert_sent_item
-      Types.Sent_item.(item.subscription_id, item.last_item_url)
+    Connection.exec Queries.insert_sent_item (subscription_id, last_item_url)
   in
   in_transaction insert
 ;;
 
-let insert_subscription subscription =
+let insert_subscription ~subscriber_id ~type_id ~feed_url =
   let insert (module Connection : Caqti_async.CONNECTION) =
-    Connection.exec
-      Queries.insert_subscription
-      Types.Subscription.(
-        subscription.subscriber_id, subscription.type_id, subscription.feed_url)
+    Connection.exec Queries.insert_subscription (subscriber_id, type_id, feed_url)
   in
   in_transaction insert
 ;;

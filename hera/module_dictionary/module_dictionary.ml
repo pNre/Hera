@@ -1,6 +1,5 @@
 open Async
 open Core
-open Cohttp
 
 module Dispatcher : Bot.Module.t = struct
   type sense =
@@ -110,10 +109,7 @@ module Dispatcher : Bot.Module.t = struct
     >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
     >>> function
     | Ok body -> handle_success chat_id body
-    | Error (Request _) -> handle_failure chat_id "request"
-    | Error (Response (Response.({status; _}), _)) ->
-      handle_failure chat_id (Code.string_of_status status)
-    | Error Format -> handle_failure chat_id "Invalid request"
+    | Error err -> handle_failure chat_id (Http.string_of_error err)
   ;;
 
   (* Bot module *)

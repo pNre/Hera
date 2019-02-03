@@ -3,6 +3,11 @@ open Core
 open Images
 
 module Dispatcher : Bot.Module.t = struct
+  type error =
+    | Http of Http.error
+    | Image_process
+    | Image_download
+
   let is_waiting_for_image = ref false
   let quality = ref 70
 
@@ -17,50 +22,46 @@ module Dispatcher : Bot.Module.t = struct
 
   let download_and_process_photo file_id =
     let download_photo photo_path =
-      Telegram.download_file photo_path >>=? write_response_to_temp_file
+      Telegram.download_file photo_path
+      >>=? write_response_to_temp_file
+      >>| Result.map_error ~f:(fun x -> Http x)
     in
     let process_photo photo =
       try
         let image = load photo [] in
         save photo (Some Jpeg) [Save_Quality !quality] image;
-        Some photo
+        Ok photo
       with ex ->
         Logging.Module.error "couldn't process image -> %s" (Exn.to_string ex);
-        None
+        Error Image_process
     in
     Telegram.get_file file_id
-    >>=? (fun {file_path; _} ->
-           Option.value_map
-             file_path
-             ~default:(Deferred.return (Result.fail Http.Format))
-             ~f:download_photo )
-    >>| function
-    | Ok photo -> process_photo photo
-    | Error _e ->
-      Logging.Module.error "couldn't get file";
-      None
+    >>| Result.map_error ~f:(fun x -> Http x)
+    >>=? (function
+           | {file_path = Some path; _} -> path |> download_photo
+           | _ -> Deferred.return (Error Image_download))
+    >>|? process_photo
+    >>| Result.join
   ;;
 
-  let process_photos chat_id photos =
-    let photo =
-      photos
-      |> List.sort
-           ~compare:Telegram.(fun a b -> (a.width * a.height) - (b.width * b.height))
-      |> List.last
+  let compress_photos chat_id photos =
+    let process file_id =
+      download_and_process_photo file_id
+      >>=? (fun f -> Reader.file_contents f >>| Result.return)
+      >>= fun content ->
+      match content with
+      | Ok photo ->
+        Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" ~mimetype:"image/jpg"
+        >>| ignore
+      | _ -> Deferred.unit
     in
+    let compare_photos a b =
+      (a.Telegram.width * a.height) - (b.Telegram.width * b.height)
+    in
+    let photo = photos |> List.sort ~compare:compare_photos |> List.last in
     match photo with
     | Some Telegram.({file_id; width = _; _}) ->
-      don't_wait_for
-        ( download_and_process_photo file_id
-        >>= Option.value_map
-              ~f:(fun f -> Reader.file_contents f >>| Option.some)
-              ~default:(Deferred.return None)
-        >>= fun content ->
-        match content with
-        | Some photo ->
-          Telegram.send_photo ~chat_id ~photo ~filename:"more.jpg" ~mimetype:"image/jpg"
-          >>| ignore
-        | None -> Deferred.unit );
+      don't_wait_for (process file_id);
       true
     | None -> false
   ;;
@@ -85,7 +86,7 @@ module Dispatcher : Bot.Module.t = struct
         (Telegram.send_message ~chat_id ~text:"Send me a picture" () >>| ignore);
       true
     | `Photos (photos, chat_id, _) when !is_waiting_for_image ->
-      process_photos chat_id photos
+      compress_photos chat_id photos
     | _ ->
       is_waiting_for_image := false;
       false

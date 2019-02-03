@@ -1,3 +1,4 @@
 (library
  (name db)
- (libraries async caqti caqti-async caqti-driver-sqlite3 logging))
+ (libraries async caqti caqti-async caqti-driver-sqlite3 logging)
+ (preprocess (pps ppx_deriving.show ppx_deriving.make)))

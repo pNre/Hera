@@ -3,13 +3,19 @@ open Core
 open Cohttp
 open Cohttp_async
 
-type http_error =
-  | Format
+type error =
   | Request of exn
   | Response of Response.t * Body.t
 
 let string_of_body = Cohttp_async.Body.to_string
 let pipe_of_body = Cohttp_async.Body.to_pipe
+
+let string_of_error = function
+  | Request exn -> Exn.to_string exn
+  | Response (response, _) ->
+    let code = Code.code_of_status response.status in
+    sprintf "status = %d, headers = %s" code (Header.to_string response.headers)
+;;
 
 let request http_method uri ?(http_headers = []) ?(body = None) ?(max_redirects = 3) () =
   let rec perform uri redirects_left =
