@@ -22,7 +22,7 @@ let request_handler ~body _ req =
   | _ -> Server.respond `Not_found
 ;;
 
-let main () =
+let main port () =
   Dispatcher.register_modules ();
   Sys.getenv_exn "TELEGRAM_WEBHOOK_URL"
   |> Uri.of_string
@@ -33,11 +33,17 @@ let main () =
         Logging.Main.info "Starting webserver";
         Server.create
           ~on_handler_error:(`Call failure_handler)
-          (Async_extra.Tcp.Where_to_listen.of_port 8001)
+          (Async_extra.Tcp.Where_to_listen.of_port port)
           request_handler )
   >>= fun _ -> Deferred.never ()
 ;;
 
 let () =
-  Async.Command.async_spec ~summary:"command" Command.Spec.empty main |> Command.run
+  let open Async.Command.Let_syntax in
+  Async.Command.async
+    ~summary:"Telegram bot that does stuff"
+    [%map_open
+      let port = flag "-p" (optional_with_default 8001 int) ~doc:"port to listen on" in
+      main port]
+  |> Async.Command.run
 ;;
