@@ -62,8 +62,9 @@ module Dispatcher : Bot.Module.t = struct
              else sprintf "_%s_" (String.concat ~sep:", " x.domains)
            in
            [defs; domains]
-           |> List.filter ~f:(fun x -> not (String.is_empty x))
+           |> List.filter ~f:(Fn.non String.is_empty)
            |> String.concat ~sep:" - " )
+    |> List.filter ~f:(Fn.non String.is_empty)
   ;;
 
   let pronunciations_of_response response =
@@ -74,7 +75,7 @@ module Dispatcher : Bot.Module.t = struct
       |> List.map ~f:(fun (x : lexical_entry) -> x.pronunciations)
       |> List.concat
       |> List.map ~f:(fun x -> x.phonetic_spelling)
-      |> List.filter_map ~f:(fun x -> x)
+      |> List.filter_map ~f:Fn.id
       |> List.dedup_and_sort ~compare:String.ascending
     in
     if List.is_empty prons
@@ -89,18 +90,14 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let handle_success chat_id body =
+    let send text = Telegram.send_message ~chat_id ~text () >>| ignore in
     let result = body |> Yojson.Safe.from_string |> retrieve_entry_of_yojson in
     match result with
     | Ok {results} ->
-      results
-      |> pronunciations_of_response
-      |> Option.iter ~f:(fun text ->
-             don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore) );
-      results
-      |> definitions_of_response
-      |> List.map ~f:(fun text -> ">" ^ text)
-      |> List.map ~f:(fun text -> Telegram.send_message ~chat_id ~text () >>| ignore)
-      |> Deferred.all_unit
+      let pronunciation = results |> pronunciations_of_response in
+      let definitions = results |> definitions_of_response in
+      Option.value_map pronunciation ~f:send ~default:Deferred.unit
+      >>= (fun _ -> List.map definitions ~f:send |> Deferred.all_unit)
       |> don't_wait_for
     | Error err -> handle_failure chat_id err
   ;;
