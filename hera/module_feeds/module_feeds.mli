@@ -1,1 +1,1 @@
-module Dispatcher: Bot.Module.t
+include Bot.Module
