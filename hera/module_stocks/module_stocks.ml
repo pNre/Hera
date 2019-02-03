@@ -23,13 +23,13 @@ module Dispatcher : Bot.Module.t = struct
   ;;
 
   let stock_in_symbols predicate =
-    let rec _stock_in_symbols symbols =
+    let rec stock_in_symbols' symbols =
       match symbols with
       | [] -> None
       | stock :: _ when predicate stock -> Some stock
-      | _ :: rest -> _stock_in_symbols rest
+      | _ :: rest -> stock_in_symbols' rest
     in
-    _stock_in_symbols !symbols
+    stock_in_symbols' !symbols
   ;;
 
   let stock_of_symbol symbol = stock_in_symbols (fun s -> s.symbol = symbol)
