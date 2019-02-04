@@ -2,8 +2,28 @@ open Async
 open Core
 
 (* Utils *)
+let message_preferences chat_id =
+  let open Db.Types.Preference in
+  let open User_preference in
+  let key = key Show_links_preview in
+  Db.find_preference ~owner_id:(Int64.to_string chat_id) ~key
+  >>|? Option.value_map
+         ~f:(fun p -> value_of_string Show_links_preview p.value)
+         ~default:(default_value Show_links_preview)
+  >>| function Ok (Bool x) -> not x | _ -> false
+;;
+
 let reply chat_id text =
-  don't_wait_for (Telegram.send_message ~chat_id ~text ~parse_mode:None () >>| ignore)
+  message_preferences chat_id
+  >>= (fun disable_web_page_preview ->
+        Telegram.send_message
+          ~chat_id
+          ~text
+          ~parse_mode:None
+          ~disable_web_page_preview
+          ()
+        >>| ignore )
+  |> don't_wait_for
 ;;
 
 (* Init *)

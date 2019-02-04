@@ -1,4 +1,4 @@
 (library
  (name telegram)
  (libraries async async_ssl yojson ppx_deriving_yojson.runtime uri http)
- (preprocess (pps ppx_deriving_yojson)))
+ (preprocess (pps ppx_deriving_yojson ppx_deriving.make)))

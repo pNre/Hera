@@ -1,0 +1,3 @@
+(library
+ (name user_preference)
+ (libraries core))

@@ -1,3 +1,3 @@
 (library
  (name module_preferences)
- (libraries async db bot logging))
+ (libraries async db bot logging user_preference))

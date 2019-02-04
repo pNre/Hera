@@ -23,6 +23,10 @@ module Queries = struct
     Types.Sent_item.make ~subscription_id ~last_item_url
   ;;
 
+  let preference_of_result (owner_id, key, value) =
+    Types.Preference.make ~owner_id ~key ~value
+  ;;
+
   (* Initialization *)
   let create =
     let enable_foreign_keys = {| PRAGMA foreign_keys = ON |} in
@@ -241,16 +245,16 @@ let find_sent_item ~subscription_id ~last_item_url =
 
 let find_preference ~owner_id ~key =
   let preference (module Connection : Caqti_async.CONNECTION) =
-    Connection.find Queries.find_preference (owner_id, key)
+    Connection.find_opt Queries.find_preference (owner_id, key)
   in
-  with_connection preference
+  with_connection preference >>|? Option.map ~f:Queries.preference_of_result
 ;;
 
 let preferences owner_id =
   let preferences' (module Connection : Caqti_async.CONNECTION) =
     Connection.collect_list Queries.preferences owner_id
   in
-  with_connection preferences'
+  with_connection preferences' >>|? List.map ~f:Queries.preference_of_result
 ;;
 
 (* Insert *)

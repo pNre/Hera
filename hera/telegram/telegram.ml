@@ -116,6 +116,23 @@ type file =
   ; file_path : string option [@default None] }
 [@@deriving of_yojson {strict = false}]
 
+type inline_keyboard_button =
+  { text : string
+  ; url : string option [@default None]
+  ; callback_data : string option [@default None] }
+[@@deriving make, to_yojson {strict = false}]
+
+type inline_keyboard_markup = {inline_keyboard : inline_keyboard_button list list}
+[@@deriving make, to_yojson {strict = false}]
+
+type send_message =
+  { chat_id : string
+  ; text : string
+  ; parse_mode : string option [@default None]
+  ; disable_web_page_preview : bool [@default false]
+  ; reply_markup : Yojson.Safe.t option [@default None] }
+[@@deriving make, to_yojson {strict = false}]
+
 let token = Sys.getenv_exn "TELEGRAM_BOT_TOKEN"
 
 type parse_mode =
@@ -139,23 +156,30 @@ let set_webhook url =
 ;;
 
 let send_message
-    ~chat_id ~text ?(parse_mode = Some Markdown) ?(disable_web_page_preview = false) () =
+    ~chat_id
+    ~text
+    ?(parse_mode = Some Markdown)
+    ?(disable_web_page_preview = false)
+    ?(reply_markup = None)
+    () =
   let max_message_length = 4096 in
   let send_message' text =
-    let parse_mode =
-      parse_mode
-      |> Option.map ~f:string_of_parse_mode
-      |> Option.value_map ~f:List.return ~default:[]
+    let parse_mode = parse_mode |> Option.map ~f:string_of_parse_mode in
+    let body =
+      make_send_message
+        ~chat_id:(Int64.to_string chat_id)
+        ~text
+        ~disable_web_page_preview
+        ~parse_mode
+        ~reply_markup
+        ()
+      |> send_message_to_yojson
+      |> Yojson.Safe.to_string
+      |> Option.return
     in
-    let qs =
-      [ "chat_id", [Int64.to_string chat_id]
-      ; "text", [text]
-      ; "disable_web_page_preview", [string_of_bool disable_web_page_preview]
-      ; "parse_mode", parse_mode ]
-      |> List.filter ~f:(fun (_, values) -> List.length values > 0)
-    in
-    let uri = uri "sendMessage" qs in
-    Http.request `GET uri ()
+    Logging.Main.info "%s" (Option.value_exn body);
+    let uri = uri "sendMessage" [] in
+    Http.request `POST uri ~body ~http_headers:["Content-Type", "application/json"] ()
   in
   let rec split_and_send text =
     if String.length text <= max_message_length
@@ -259,7 +283,10 @@ let parse_update update =
       let args = args |> List.map ~f:Caml.String.trim in
       `Command (command, args, chat_id, update)
     | _ -> `Unknown)
-  | {message = Some {chat = {id = chat_id; _}; photo = photos; _}; _} when not (List.is_empty photos) ->
-    `Photos (photos, chat_id, update)
-  | _ -> `Unknown
+  | {message = Some {chat = {id = chat_id; _}; photo = photos; _}; _}
+    when not (List.is_empty photos) -> `Photos (photos, chat_id, update)
+  | {callback_query = Some {message = Some {chat = {id = chat_id; _}; _}; data; _}; _} ->
+    let sexp = Option.map data ~f:Sexp.of_string in
+    `Callback_query (sexp, chat_id, update)
+  | _ -> `Unknown 
 ;;

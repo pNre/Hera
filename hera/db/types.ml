@@ -4,7 +4,7 @@ module Subscription = struct
     ; subscriber_id : string
     ; type_id : string [@default ""]
     ; feed_url : string }
-  [@@deriving show, make]
+  [@@deriving make]
 
   let key subscription = subscription.subscriber_id ^ "," ^ subscription.feed_url
 end
@@ -13,5 +13,13 @@ module Sent_item = struct
   type t =
     { subscription_id : int
     ; last_item_url : string }
-  [@@deriving show, make]
+  [@@deriving make]
+end
+
+module Preference = struct
+  type t =
+    { owner_id : string
+    ; key : string
+    ; value : string }
+  [@@deriving make]
 end
