@@ -39,8 +39,8 @@ let parse_offset = function
     (if intv >= 0 then 1 else -1) * ((hours * 60) + mins)
 ;;
 
-let parse_time ?(offset = 0) str =
-  match String.split str ~on:':' with
+let parse_time ?(offset = 0) string =
+  match String.split string ~on:':' with
   | [hr; mn] -> (int_of_string hr, int_of_string mn, 0), offset
   | [hr; mn; s] -> (int_of_string hr, int_of_string mn, int_of_string s), offset
   | _ -> invalid_arg "RFC822.parse_time"
@@ -60,8 +60,15 @@ let of_rfc822 string =
         ( (int_of_string year, int_of_month month, int_of_string day)
         , parse_time ~offset:(parse_offset offset * 60) time )
     | _ ->
-      Logging.Module.error "Invalid date %s" string;
-      None
+      let time =
+        string
+        |> Time.of_string
+        |> Time.to_span_since_epoch
+        |> Time.Span.to_sec
+        |> Ptime.of_float_s
+      in
+      if None = time then Logging.Module.error "Invalid date %s" string;
+      time
   in
   parse
   |> Result.try_with
