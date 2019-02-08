@@ -1,4 +1,4 @@
 (library
  (name module_feeds)
- (libraries async async_ssl caqti caqti-async caqti-driver-sqlite3 db bot xmlm logging user_preference)
+ (libraries async async_ssl caqti caqti-async caqti-driver-sqlite3 db bot xmlm logging user_preference ptime)
  (preprocess (pps ppx_deriving.show)))
