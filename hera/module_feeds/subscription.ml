@@ -13,14 +13,14 @@ let send_content_if_needed content ~subscription ~send =
       "Checking whether to send %s to %s"
       link
       subscription.Subscription.subscriber_id;
-    Db.find_sent_item ~subscription_id:subscription.id ~last_item_url:link
+    Db.find_sent_item ~item_url:link
     >>| Result.map_error ~f:wrap_error
     >>|? not
     >>|? Result.ok_if_true ~error:`Sent
     >>| Result.join
     >>=? (fun _ ->
            Logging.Module.info "Sending %s to %s" link subscription.subscriber_id;
-           Db.insert_sent_item ~subscription_id:subscription.id ~last_item_url:link
+           Db.insert_sent_item ~item_url:link
            >>| Result.map_error ~f:wrap_error )
     >>> Result.iter ~f:(fun _ -> send (sprintf "%s\n\n%s" title link))
   | _ -> ()

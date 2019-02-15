@@ -12,15 +12,11 @@ module Queries = struct
   (* Types *)
   let select_subscription_type = Caqti_type.(tup4 int string string string)
   let insert_subscription_type = Caqti_type.(tup3 string string string)
-  let sent_item_type = Caqti_type.(tup2 int string)
+  let sent_item_type = Caqti_type.string
   let preference_type = Caqti_type.(tup3 string string string)
 
   let subscription_of_result (id, subscriber_id, type_id, feed_url) =
     Types.Subscription.make ~id ~subscriber_id ~type_id ~feed_url ()
-  ;;
-
-  let sent_item_of_result (subscription_id, last_item_url) =
-    Types.Sent_item.make ~subscription_id ~last_item_url
   ;;
 
   let preference_of_result (owner_id, key, value) =
@@ -45,13 +41,7 @@ module Queries = struct
       {| CREATE INDEX IF NOT EXISTS subscription_feed ON subscription (feed_url) |}
     in
     let sent_item =
-      {| CREATE TABLE IF NOT EXISTS "sent_item" (
-           "subscription_id" INTEGER NOT NULL REFERENCES subscription(id) ON DELETE CASCADE,
-           "last_item_url" TEXT DEFAULT NULL,
-           CONSTRAINT sent_item_un UNIQUE (subscription_id, last_item_url)) |}
-    in
-    let sent_item_subscription =
-      {| CREATE INDEX IF NOT EXISTS sent_item_subscription ON sent_item (subscription_id) |}
+      {| CREATE TABLE IF NOT EXISTS "sent_item" ("item_url" TEXT NOT NULL PRIMARY KEY) |}
     in
     let preferences =
       {| CREATE TABLE IF NOT EXISTS "preference" (
@@ -65,7 +55,6 @@ module Queries = struct
     ; subscription_subscriber_id_index
     ; subscription_feed_index
     ; sent_item
-    ; sent_item_subscription
     ; preferences ]
     |> List.map ~f:(Caqti_request.exec Caqti_type.unit)
   ;;
@@ -119,10 +108,7 @@ module Queries = struct
   let insert_sent_item =
     Caqti_request.exec
       sent_item_type
-      {| INSERT INTO sent_item
-           (subscription_id, last_item_url)
-           VALUES
-           (?, ?) |}
+      {| INSERT INTO sent_item (item_url) VALUES (?) |}
   ;;
 
   let find_sent_item =
@@ -131,7 +117,7 @@ module Queries = struct
       Caqti_type.int
       {| SELECT COUNT(1)
            FROM sent_item
-           WHERE subscription_id = ? AND last_item_url = ? |}
+           WHERE item_url = ? |}
   ;;
 
   (* Preferences *)
@@ -236,9 +222,9 @@ let find_subscription ~subscriber_id ~feed_url =
   with_connection subscription >>|? Option.map ~f:Queries.subscription_of_result
 ;;
 
-let find_sent_item ~subscription_id ~last_item_url =
+let find_sent_item ~item_url =
   let sent_item' (module Connection : Caqti_async.CONNECTION) =
-    Connection.find Queries.find_sent_item (subscription_id, last_item_url)
+    Connection.find Queries.find_sent_item item_url
   in
   with_connection sent_item' >>|? fun x -> x > 0
 ;;
@@ -258,9 +244,9 @@ let preferences owner_id =
 ;;
 
 (* Insert *)
-let insert_sent_item ~subscription_id ~last_item_url =
+let insert_sent_item ~item_url =
   let insert (module Connection : Caqti_async.CONNECTION) =
-    Connection.exec Queries.insert_sent_item (subscription_id, last_item_url)
+    Connection.exec Queries.insert_sent_item item_url
   in
   in_transaction insert
 ;;

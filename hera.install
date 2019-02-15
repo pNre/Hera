@@ -1,5 +1,6 @@
 lib: [
   "_build/install/default/lib/hera/META" {"META"}
+  "_build/install/default/lib/hera/dune-package" {"dune-package"}
   "_build/install/default/lib/hera/opam" {"opam"}
 ]
 bin: [
