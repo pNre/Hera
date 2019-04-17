@@ -1,10 +1,14 @@
 open Async
 open Core
 
+type domain =
+  { text : string }
+[@@deriving of_yojson {strict = false}]
+
 type sense =
   { definitions : string list [@default []]
   ; short_definitions : string list [@default []]
-  ; domains : string list [@default []] }
+  ; domains : domain list [@default []] }
 [@@deriving of_yojson {strict = false}]
 
 type pronunciation =
@@ -23,7 +27,6 @@ type entry =
 type lexical_entry =
   { entries : entry list [@default []]
   ; language : string
-  ; lexical_category : string [@key "lexicalCategory"]
   ; pronunciations : pronunciation list [@default []]
   ; text : string }
 [@@deriving of_yojson {strict = false}]
@@ -54,10 +57,11 @@ let definitions_of_response response =
   |> List.concat
   |> List.map ~f:(fun x ->
          let defs = String.concat ~sep:"\n" x.definitions in
+         let domains = List.map x.domains ~f:(fun x -> x.text) in
          let domains =
-           if List.is_empty x.domains
+           if List.is_empty domains
            then ""
-           else sprintf "_%s_" (String.concat ~sep:", " x.domains)
+           else sprintf "_%s_" (String.concat ~sep:", " domains)
          in
          [defs; domains]
          |> List.filter ~f:(Fn.non String.is_empty)
@@ -102,7 +106,7 @@ let handle_success chat_id body =
 
 let search_term ~chat_id ~term =
   let encoded_term = term |> String.lowercase |> Uri.pct_encode in
-  let path = sprintf "/api/v1/entries/en/%s" encoded_term in
+  let path = sprintf "/api/v2/entries/en-gb/%s" encoded_term in
   let uri = Uri.make ~scheme:"https" ~host:"od-api.oxforddictionaries.com" ~path () in
   Http.request `GET uri ~http_headers ()
   >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
