@@ -11,6 +11,7 @@ type feed =
   | Data of string
   | Link of (string * string) list * string option
   | Date of string
+  | Guid of string
   | Other
 [@@deriving show]
 
@@ -24,6 +25,7 @@ let resolve_uri ~xmlbase uri =
 ;;
 
 let map_title = function Title title -> Some title | _ -> None
+let map_guid = function Guid guid -> Some guid | _ -> None
 let map_date mapping date = match date with Date date -> mapping date | _ -> None
 
 let map_atom_link ~xmlbase entry =
@@ -37,9 +39,9 @@ let map_rss_link ~xmlbase item =
   match item with Link (_, uri) -> Option.map uri ~f:(resolve_uri ~xmlbase) | _ -> None
 ;;
 
-let make_content ~title ~link ~date =
+let make_content ~title ~link ~date ~guid =
   match title, link, date with
-  | Some title, Some link, Some date -> Some {title; link; date}
+  | Some title, Some link, Some date -> Some {title; link; date; guid}
   | _ -> None
 ;;
 
@@ -50,7 +52,8 @@ let content_of_atom_entry xmlbase entry =
   in
   let date = List.find_map entry ~f:(map_date date_mapping) in
   let link = List.find_map entry ~f:(map_atom_link ~xmlbase) in
-  make_content ~title ~link ~date
+  let guid = List.find_map entry ~f:map_guid in
+  make_content ~title ~link ~date ~guid
 ;;
 
 let content_of_rss_item xmlbase item =
@@ -58,7 +61,8 @@ let content_of_rss_item xmlbase item =
   let date_mapping = Fn.compose Result.ok Feed_date.of_rfc822 in
   let date = List.find_map item ~f:(map_date date_mapping) in
   let link = List.find_map item ~f:(map_rss_link ~xmlbase) in
-  make_content ~title ~link ~date
+  let guid = List.find_map item ~f:map_guid in
+  make_content ~title ~link ~date ~guid
 ;;
 
 let latest_content_of_feed xmlbase feed =
@@ -94,6 +98,8 @@ let parse_feed xmlbase input =
         | (_, "channel"), _ -> Channel children
         | (_, "entry"), _ -> Entry children
         | (_, "item"), _ -> Item children
+        | (_, "guid"), _ ->
+          (match data_children children with Some guid -> Guid guid | _ -> Other)
         | (_, "updated"), _ | (_, "pubDate"), _ ->
           (match data_children children with Some date -> Date date | _ -> Other)
         | (_, "title"), _ ->

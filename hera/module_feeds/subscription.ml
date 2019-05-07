@@ -8,21 +8,25 @@ let subscription_tasks = String.Table.create ~growth_allowed:true ()
 let send_content_if_needed content ~subscription ~send =
   let wrap_error e = `Db e in
   match content with
-  | Some {title; link; _} ->
+  | Some c ->
+    let id = identifier_of_feed_content c in
     Logging.Module.info
       "Checking whether to send %s to %s"
-      link
+      c.link
       subscription.Subscription.subscriber_id;
-    Db.find_sent_item ~item_url:link
+    Db.find_sent_item ~id
     >>| Result.map_error ~f:wrap_error
     >>|? not
     >>|? Result.ok_if_true ~error:`Sent
     >>| Result.join
     >>=? (fun _ ->
-           Logging.Module.info "Sending %s to %s" link subscription.subscriber_id;
-           Db.insert_sent_item ~item_url:link
-           >>| Result.map_error ~f:wrap_error )
-    >>> Result.iter ~f:(fun _ -> send (sprintf "%s\n\n%s" title link))
+           Logging.Module.info
+             "Sending %s to %s (%s)"
+             c.link
+             subscription.subscriber_id
+             id;
+           Db.insert_sent_item ~id >>| Result.map_error ~f:wrap_error)
+    >>> Result.iter ~f:(fun _ -> send (sprintf "%s\n\n%s" c.title c.link))
   | _ -> ()
 ;;
 
@@ -91,10 +95,10 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
     >>=? (fun _ -> validate_subscription feed_url)
     >>=? (fun _ ->
            Db.insert_subscription ~subscriber_id ~type_id:"" ~feed_url
-           >>| Result.map_error ~f:map_db_error )
+           >>| Result.map_error ~f:map_db_error)
     >>=? (fun _ ->
            Db.find_subscription ~subscriber_id ~feed_url
-           >>| Result.map_error ~f:map_db_error )
+           >>| Result.map_error ~f:map_db_error)
     >>> (function
     | Ok (Some subscription) -> begin_checking_subscription subscription reply
     | Error `Too_big ->

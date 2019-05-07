@@ -222,9 +222,9 @@ let find_subscription ~subscriber_id ~feed_url =
   with_connection subscription >>|? Option.map ~f:Queries.subscription_of_result
 ;;
 
-let find_sent_item ~item_url =
+let find_sent_item ~id =
   let sent_item' (module Connection : Caqti_async.CONNECTION) =
-    Connection.find Queries.find_sent_item item_url
+    Connection.find Queries.find_sent_item id
   in
   with_connection sent_item' >>|? fun x -> x > 0
 ;;
@@ -244,9 +244,9 @@ let preferences owner_id =
 ;;
 
 (* Insert *)
-let insert_sent_item ~item_url =
+let insert_sent_item ~id =
   let insert (module Connection : Caqti_async.CONNECTION) =
-    Connection.exec Queries.insert_sent_item item_url
+    Connection.exec Queries.insert_sent_item id
   in
   in_transaction insert
 ;;
