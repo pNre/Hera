@@ -3,7 +3,7 @@ open Core
 
 let modules =
   [ (module Module_dictionary : Bot.Module)
-  ; (module Module_stocks : Bot.Module)
+  ; (module Module_markets : Bot.Module)
   ; (module Module_feeds : Bot.Module)
   ; (module Module_air_quality : Bot.Module)
   ; (module Module_morejpeg : Bot.Module)

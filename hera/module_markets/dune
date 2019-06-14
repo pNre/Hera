@@ -1,0 +1,4 @@
+(library
+ (name module_markets)
+ (libraries async async_ssl yojson ppx_deriving_yojson.runtime bignum bot logging db)
+ (preprocess (pps ppx_deriving_yojson)))

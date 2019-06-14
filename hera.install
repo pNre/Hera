@@ -1,10 +1,10 @@
 lib: [
-  "_build/install/default/lib/hera/META" {"META"}
-  "_build/install/default/lib/hera/dune-package" {"dune-package"}
-  "_build/install/default/lib/hera/opam" {"opam"}
+  "_build/install/default/lib/hera/META"
+  "_build/install/default/lib/hera/dune-package"
+  "_build/install/default/lib/hera/opam"
 ]
 bin: [
-  "_build/install/default/bin/hera" {"hera"}
+  "_build/install/default/bin/hera"
 ]
 doc: [
   "_build/install/default/doc/hera/README.md"

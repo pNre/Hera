@@ -1,4 +1,0 @@
-(library
- (name module_stocks)
- (libraries async async_ssl yojson ppx_deriving_yojson.runtime bot logging)
- (preprocess (pps ppx_deriving_yojson)))

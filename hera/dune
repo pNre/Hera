@@ -1,5 +1,5 @@
 (executable
  (name main)
  (public_name hera)
- (libraries async async_ssl cohttp cohttp-async yojson uri http telegram bot logging db user_preference module_dictionary module_stocks module_feeds module_air_quality module_morejpeg module_preferences)
+ (libraries async async_ssl cohttp cohttp-async yojson uri http telegram bot logging db user_preference module_dictionary module_markets module_feeds module_air_quality module_morejpeg module_preferences)
  (preprocess (pps ppx_let)))

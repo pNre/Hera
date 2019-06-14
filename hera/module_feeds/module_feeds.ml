@@ -16,7 +16,7 @@ let message_preferences chat_id =
 let reply chat_id text =
   message_preferences chat_id
   >>= (fun disable_web_page_preview ->
-        Telegram.send_message
+      Telegram.send_message
           ~chat_id
           ~text
           ~parse_mode:None
