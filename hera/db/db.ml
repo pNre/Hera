@@ -19,7 +19,9 @@ module Queries = struct
     Caqti_type.(tup2 (tup2 int string) (tup4 string string string string))
   ;;
 
-  let insert_market_position_type = Caqti_type.(tup3 string string (tup3 string string string))
+  let insert_market_position_type =
+    Caqti_type.(tup3 string string (tup3 string string string))
+  ;;
 
   let subscription_of_result (id, subscriber_id, type_id, feed_url) =
     Types.Subscription.make ~id ~subscriber_id ~type_id ~feed_url ()
@@ -67,7 +69,8 @@ module Queries = struct
            "symbol" VARCHAR(32) NOT NULL,
            "price" VARCHAR(64) NOT NULL,
            "size" VARCHAR(64) NOT NULL,
-           "currency" VARCHAR(8) NOT NULL) |}
+           "currency" VARCHAR(8) NOT NULL,
+           CONSTRAINT market_position_un UNIQUE (owner_id, symbol)) |}
     in
     let market_position_owner_id_index =
       {| CREATE INDEX IF NOT EXISTS market_positon_owner ON market_position (owner_id) |}
@@ -142,6 +145,13 @@ module Queries = struct
       Caqti_type.string
       select_market_position_type
       {| SELECT * FROM market_position WHERE owner_id = ? |}
+  ;;
+
+  let find_market_position =
+    Caqti_request.find
+      Caqti_type.(tup2 string string)
+      select_market_position_type
+      {| SELECT * FROM market_position WHERE owner_id = ? AND symbol = ? |}
   ;;
 
   let insert_market_position =
@@ -314,6 +324,13 @@ let market_positions_for_owner owner_id =
   with_connection market_positions' >>|? List.map ~f:Queries.market_position_of_result
 ;;
 
+let find_market_position ~owner_id ~symbol =
+  let market_position (module Connection : Caqti_async.CONNECTION) =
+    Connection.find_opt Queries.find_market_position (owner_id, symbol)
+  in
+  with_connection market_position >>|? Option.map ~f:Queries.market_position_of_result
+;;
+
 (* Insert *)
 let insert_sent_item ~id =
   let insert (module Connection : Caqti_async.CONNECTION) =
@@ -339,7 +356,9 @@ let insert_preference ~owner_id ~key ~value =
 
 let insert_market_position ~owner_id ~symbol ~price ~size ~currency =
   let insert (module Connection : Caqti_async.CONNECTION) =
-    Connection.exec Queries.insert_market_position (owner_id, symbol, (price, size, currency))
+    Connection.exec
+      Queries.insert_market_position
+      (owner_id, symbol, (price, size, currency))
   in
   in_transaction insert
 ;;

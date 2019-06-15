@@ -4,12 +4,11 @@ open Types
 
 let position_tasks = Int.Table.create ~growth_allowed:true ()
 
-let map_market_positions positions =
-  positions
-  |> List.map ~f:(fun pos ->
-         { pos; price = Bignum.of_string pos.price; size = Bignum.of_string pos.size })
+let map_market_position pos =
+  { pos; price = Bignum.of_string pos.price; size = Bignum.of_string pos.size }
 ;;
 
+let map_market_positions positions = positions |> List.map ~f:map_market_position
 let positions () = Db.market_positions () >>|? map_market_positions
 
 let positions_for_owner owner_id =
@@ -102,15 +101,28 @@ let add ~owner_id ~symbol ~price ~size ~reply =
     Markets.quotes ~symbol >>| Result.map_error ~f:(fun error -> `Market error)
   in
   let insert_position quotes =
-    Db.insert_market_position ~owner_id ~symbol ~price ~size ~currency:quotes.Markets.currency
-    >>| Result.map ~f:(fun _ -> quotes)
+    Db.insert_market_position
+      ~owner_id
+      ~symbol
+      ~price
+      ~size
+      ~currency:quotes.Markets.currency
+    >>=? (fun _ -> Db.find_market_position ~owner_id ~symbol)
+    >>| Result.map ~f:(fun pos -> pos, quotes)
     >>| Result.map_error ~f:(fun error -> `Db error)
+  in
+  let start_checking (position, quotes) =
+    position
+    |> Option.map ~f:map_market_position
+    |> Option.iter ~f:(fun position -> start_checking position reply);
+    quotes
   in
   try
     let _ = Bignum.of_string price in
     let _ = Bignum.of_string size in
     quotes ()
     >>=? insert_position
+    >>|? start_checking
     >>> function
     | Ok quote ->
       let text =
