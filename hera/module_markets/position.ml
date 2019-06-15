@@ -23,12 +23,12 @@ let start_checking position send =
       |> Mvar.peek
       |> Option.value_map ~default:true ~f:(fun last_time -> last_time < time)
     in
-    let profit_in_quote price currency =
+    let profit_in_quote price =
       Bignum.(
         let initial_amount = position.price * position.size in
         let current_amount = price * position.size in
         let amount_diff = current_amount - initial_amount in
-        to_string_hum ~delimiter:'.' ~decimals:2 amount_diff ^ " " ^ currency)
+        to_string_hum ~delimiter:'.' ~decimals:2 amount_diff)
     in
     let change_in_quote close =
       Bignum.(
@@ -43,9 +43,9 @@ let start_checking position send =
           "🎢 _%s_\n*Last update*: %s\n*Close*: `%s`\n*Change*: `%s`\n*Profit*: `%s`"
           position.pos.symbol
           quote.regular_market_time.fmt
-          quote.regular_market_price.fmt
+          (quote.regular_market_price.fmt ^ " " ^ quote.currency)
           (change_in_quote price)
-          (profit_in_quote price quote.currency))
+          (profit_in_quote price ^ " " ^ quote.currency))
     in
     fun () ->
       Markets.quotes ~symbol:position.pos.symbol
@@ -74,24 +74,27 @@ let stop_checking id =
 
 let list ~owner_id ~reply =
   let send positions =
-    let text =
-      if not (List.is_empty positions)
-      then
-        positions
-        |> List.map ~f:(fun position ->
-               let price = Bignum.to_string_accurate position.price in
-               let size = Bignum.to_string_accurate position.size in
+    if not (List.is_empty positions)
+    then
+      positions
+      |> List.iter ~f:(fun position ->
+             let price = Bignum.to_string_accurate position.price in
+             let size = Bignum.to_string_accurate position.size in
+             let total =
+               Bignum.(
+                 to_string_hum ~delimiter:'.' ~decimals:4 (position.price * position.size))
+             in
+             let text =
                sprintf
-                 "`%s` @ `%s %s` × `%s` (%d)"
+                 "_ID:_ %d\n*Symbol*: `%s`\n*Price*: `%s`\n*Size*: `%s`\n*Total*: `%s`"
+                 position.pos.id
                  position.pos.symbol
-                 price
-                 position.pos.currency
+                 (price ^ " " ^ position.pos.currency)
+                 (total ^ " " ^ position.pos.currency)
                  size
-                 position.pos.id)
-        |> String.concat ~sep:"\n"
-      else "No positions"
-    in
-    reply text
+             in
+             reply text)
+    else reply "No positions"
   in
   positions_for_owner (Int64.to_string owner_id) >>> Result.iter ~f:send
 ;;
