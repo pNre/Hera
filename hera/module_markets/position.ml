@@ -44,10 +44,7 @@ let start_checking position send =
           |> Span.of_int63_seconds
           |> Time.of_span_since_epoch
         in
-        let zone =
-          try force Zone.local with
-          | _ -> Zone.utc
-        in
+        let zone = Zone.find_exn "Europe/Rome" in
         let formatted_zone = Zone.abbreviation zone time in
         Time.format time "%d/%m/%Y %H:%M:%S" ~zone ^ " " ^ formatted_zone)
     in
