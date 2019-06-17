@@ -36,13 +36,28 @@ let start_checking position send =
         let change = (ratio - one) * hundred in
         to_string_hum ~delimiter:'.' ~decimals:4 change ^ "%")
     in
+    let market_time time =
+      Time.(
+        let time =
+          time.Markets.raw
+          |> Int63.of_int64_trunc
+          |> Span.of_int63_seconds
+          |> Time.of_span_since_epoch
+        in
+        let zone =
+          try force Zone.local with
+          | _ -> Zone.utc
+        in
+        let formatted_zone = Zone.abbreviation zone time in
+        Time.format time "%d/%m/%Y %H:%M:%S" ~zone ^ " " ^ formatted_zone)
+    in
     let format quote =
       Markets.(
         let price = Bignum.of_string quote.regular_market_price.fmt in
         sprintf
           "🎢 _%s_\n*Last update*: %s\n*Close*: `%s`\n*Change*: `%s`\n*Profit*: `%s`"
           position.pos.symbol
-          quote.regular_market_time.fmt
+          (market_time quote.regular_market_time)
           (quote.regular_market_price.fmt ^ " " ^ quote.currency)
           (change_in_quote price)
           (profit_in_quote price ^ " " ^ quote.currency))
