@@ -105,8 +105,8 @@ let list ~owner_id ~reply =
                  position.pos.id
                  position.pos.symbol
                  (price ^ " " ^ position.pos.currency)
-                 (total ^ " " ^ position.pos.currency)
                  size
+                 (total ^ " " ^ position.pos.currency)
              in
              reply text)
     else reply "No positions"
