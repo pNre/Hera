@@ -17,11 +17,11 @@ let positions_for_owner owner_id =
 
 let start_checking position send =
   let check_last_price () =
-    let last_time = Mvar.create () in
-    let is_past_last_time time =
-      last_time
+    let last_price = Mvar.create () in
+    let has_price_changed price =
+      last_price
       |> Mvar.peek
-      |> Option.value_map ~default:true ~f:(fun last_time -> last_time < time)
+      |> Option.value_map ~default:true ~f:Bignum.(fun last_price -> last_price <> price)
     in
     let profit_in_quote price =
       Bignum.(
@@ -63,9 +63,10 @@ let start_checking position send =
       Markets.quotes ~symbol:position.pos.symbol
       >>= fun result ->
       Result.iter result ~f:(fun quote ->
-          if is_past_last_time quote.regular_market_time.raw
+          let price = Bignum.of_string quote.regular_market_price.fmt in
+          if has_price_changed price
           then (
-            Mvar.set last_time quote.regular_market_time.raw;
+            Mvar.set last_price price;
             format quote |> send)
           else ());
       Deferred.unit
