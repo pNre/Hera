@@ -7,7 +7,8 @@ let modules =
   ; (module Module_feeds : Bot.Module)
   ; (module Module_air_quality : Bot.Module)
   ; (module Module_morejpeg : Bot.Module)
-  ; (module Module_preferences : Bot.Module) ]
+  ; (module Module_preferences : Bot.Module) 
+  ; (module Module_faces : Bot.Module) ]
 ;;
 
 let register m =
