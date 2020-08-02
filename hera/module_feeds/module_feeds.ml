@@ -10,26 +10,26 @@ let message_preferences chat_id =
   >>|? Option.value_map
          ~f:(fun p -> value_of_string Show_links_preview p.value)
          ~default:(default_value Show_links_preview)
-  >>| function Ok (Bool x) -> not x | _ -> false
+  >>| function
+  | Ok (Bool x) -> not x
+  | _ -> false
 ;;
 
 let reply chat_id text =
   message_preferences chat_id
   >>= (fun disable_web_page_preview ->
-      Telegram.send_message
-          ~chat_id
-          ~text
-          ~parse_mode:None
-          ~disable_web_page_preview
-          ()
-        >>| ignore )
+        Telegram.send_message ~chat_id ~text ~parse_mode:None ~disable_web_page_preview ()
+        >>| ignore)
   |> don't_wait_for
 ;;
 
 (* Init *)
 let create_tables () =
   Db.create_tables ()
-  >>> function Ok _ -> () | Error _ -> failwith "Error creating module_feeds tables"
+  >>> function
+  | Ok _ -> ()
+  | Error e ->
+    failwith (sprintf "Error creating module_feeds tables: %s" (Db.string_of_error e))
 ;;
 
 let load_subscriptions () =

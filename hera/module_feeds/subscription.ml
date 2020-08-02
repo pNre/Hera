@@ -78,7 +78,7 @@ let validate_subscription feed_url =
     |> Option.join
     |> Option.value_map ~f:(fun x -> x < 1024 * 1024 * 10) ~default:false
     |> Result.ok_if_true ~error:`Too_big
-  | _ -> Result.ok_unit
+  | _ -> Ok ()
 ;;
 
 let add_subscription ~subscriber_id ~feed_url ~reply =
@@ -89,8 +89,7 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
     let map_db_error e = `Db e in
     Db.find_subscription ~subscriber_id ~feed_url
     >>| Result.map_error ~f:map_db_error
-    >>| Result.map
-          ~f:(Option.value_map ~f:(fun _ -> Error `Result) ~default:Result.ok_unit)
+    >>| Result.map ~f:(Option.value_map ~f:(fun _ -> Error `Result) ~default:(Ok ()))
     >>| Result.join
     >>=? (fun _ -> validate_subscription feed_url)
     >>=? (fun _ ->

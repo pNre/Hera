@@ -16,7 +16,7 @@ let map_preferences preferences =
   let set_keys = set_key_values |> List.map ~f:(fun (k, _) -> k) in
   let missing_key_values =
     User_preference.all
-    |> List.filter ~f:(Fn.non (List.mem set_keys ~equal:( = )))
+    |> List.filter ~f:(Fn.non (List.mem set_keys ~equal:Poly.( = )))
     |> List.map ~f:(fun key -> key, User_preference.default_value key)
   in
   set_key_values @ missing_key_values

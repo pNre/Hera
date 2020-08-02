@@ -1,5 +1,6 @@
 open Async
 open Core
+open Poly
 
 type user =
   { id : int64
@@ -7,8 +8,9 @@ type user =
   ; first_name : string
   ; last_name : string option [@default None]
   ; username : string option [@default None]
-  ; language_code : string option [@default None] }
-[@@deriving of_yojson {strict = false}]
+  ; language_code : string option [@default None]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type chat =
   { id : int64
@@ -19,8 +21,9 @@ type chat =
   ; last_name : string option [@default None]
   ; all_members_are_administrators : bool option [@default None]
   ; description : string option [@default None]
-  ; invite_link : string option [@default None] }
-[@@deriving of_yojson {strict = false}]
+  ; invite_link : string option [@default None]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type message_entity_type =
   | Mention [@name "mention"]
@@ -43,15 +46,17 @@ type message_entity =
   ; offset : int
   ; length : int
   ; url : string option [@default None]
-  ; user : user option [@default None] }
-[@@deriving of_yojson {strict = false}]
+  ; user : user option [@default None]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type photo_size =
   { file_id : string
   ; width : int
   ; height : int
-  ; file_size : int option [@default None] }
-[@@deriving of_yojson {strict = false}]
+  ; file_size : int option [@default None]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type message =
   { message_id : int64
@@ -73,21 +78,24 @@ type message =
   ; new_chat_members : user list [@default []]
   ; left_chat_member : user option [@default None]
   ; new_chat_title : string option [@default None]
-  ; photo : photo_size list [@default []] }
-[@@deriving of_yojson {strict = false}]
+  ; photo : photo_size list [@default []]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type inline_query =
   { id : int64
   ; from : user
   ; query : string
-  ; offset : string }
+  ; offset : string
+  }
 [@@deriving of_yojson]
 
 type chosen_inline_result =
   { result_id : string
   ; from : user
   ; inline_message_id : string option [@default None]
-  ; query : string }
+  ; query : string
+  }
 [@@deriving of_yojson]
 
 type callback_query =
@@ -96,8 +104,9 @@ type callback_query =
   ; message : message option [@default None]
   ; inline_message_id : string option [@default None]
   ; chat_instance : string
-  ; data : string option [@default None] }
-[@@deriving of_yojson {strict = false}]
+  ; data : string option [@default None]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type update =
   { update_id : int64
@@ -107,31 +116,35 @@ type update =
   ; edited_channel_post : message option [@default None]
   ; inline_query : inline_query option [@default None]
   ; chosen_inline_result : chosen_inline_result option [@default None]
-  ; callback_query : callback_query option [@default None] }
-[@@deriving of_yojson {strict = false}]
+  ; callback_query : callback_query option [@default None]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type file =
   { file_id : string
   ; file_size : int option [@default None]
-  ; file_path : string option [@default None] }
-[@@deriving of_yojson {strict = false}]
+  ; file_path : string option [@default None]
+  }
+[@@deriving of_yojson { strict = false }]
 
 type inline_keyboard_button =
   { text : string
   ; url : string option [@default None]
-  ; callback_data : string option [@default None] }
-[@@deriving make, to_yojson {strict = false}]
+  ; callback_data : string option [@default None]
+  }
+[@@deriving make, to_yojson { strict = false }]
 
-type inline_keyboard_markup = {inline_keyboard : inline_keyboard_button list list}
-[@@deriving make, to_yojson {strict = false}]
+type inline_keyboard_markup = { inline_keyboard : inline_keyboard_button list list }
+[@@deriving make, to_yojson { strict = false }]
 
 type send_message =
   { chat_id : string
   ; text : string
   ; parse_mode : string option [@default None]
   ; disable_web_page_preview : bool [@default false]
-  ; reply_markup : Yojson.Safe.t option [@default None] }
-[@@deriving make, to_yojson {strict = false}]
+  ; reply_markup : Yojson.Safe.t option [@default None]
+  }
+[@@deriving make, to_yojson { strict = false }]
 
 let token = Sys.getenv_exn "TELEGRAM_BOT_TOKEN"
 
@@ -139,7 +152,11 @@ type parse_mode =
   | Markdown
   | HTML
 
-let string_of_parse_mode mode = match mode with Markdown -> "Markdown" | HTML -> "HTML"
+let string_of_parse_mode mode =
+  match mode with
+  | Markdown -> "Markdown"
+  | HTML -> "HTML"
+;;
 
 let uri ?(base = "/") endpoint query =
   let endpoint =
@@ -150,7 +167,7 @@ let uri ?(base = "/") endpoint query =
 ;;
 
 let set_webhook url =
-  let qs = ["url", [Uri.to_string url]] in
+  let qs = [ "url", [ Uri.to_string url ] ] in
   let uri = uri "setWebhook" qs in
   Http.request `GET uri ()
 ;;
@@ -161,7 +178,8 @@ let send_message
     ?(parse_mode = Some Markdown)
     ?(disable_web_page_preview = false)
     ?(reply_markup = None)
-    () =
+    ()
+  =
   let max_message_length = 4096 in
   let send_message' text =
     let parse_mode = parse_mode |> Option.map ~f:string_of_parse_mode in
@@ -179,12 +197,12 @@ let send_message
     in
     Logging.Main.info "%s" (Option.value_exn body);
     let uri = uri "sendMessage" [] in
-    Http.request `POST uri ~body ~http_headers:["Content-Type", "application/json"] ()
+    Http.request `POST uri ~body ~http_headers:[ "Content-Type", "application/json" ] ()
   in
   let rec split_and_send text =
     if String.length text <= max_message_length
-    then [send_message' text]
-    else
+    then [ send_message' text ]
+    else (
       let prefix = String.prefix text max_message_length in
       match String.rsplit2 prefix ~on:'\n' with
       | Some (text_to_send, rest) ->
@@ -192,7 +210,7 @@ let send_message
         :: split_and_send (rest ^ String.drop_prefix text max_message_length)
       | None ->
         send_message' prefix
-        :: split_and_send (String.drop_prefix text max_message_length)
+        :: split_and_send (String.drop_prefix text max_message_length))
   in
   (* should probably introduce some kind of retry logic *)
   Deferred.Result.all (split_and_send text) >>| ignore
@@ -201,10 +219,10 @@ let send_message
 let get_file id =
   let map_body body =
     let json = body |> Yojson.Safe.from_string in
-    try json |> Yojson.Safe.Util.member "result" |> file_of_yojson with _ ->
-      Error "Invalid response"
+    try json |> Yojson.Safe.Util.member "result" |> file_of_yojson with
+    | _ -> Error "Invalid response"
   in
-  let uri = uri "getFile" ["file_id", [id]] in
+  let uri = uri "getFile" [ "file_id", [ id ] ] in
   Http.request `GET uri ()
   >>=? fun (response, body) ->
   Http.string_of_body body
@@ -231,7 +249,7 @@ let multipart_body ~fields ~name ~data ~filename ~mimetype ~boundary =
            ^ "\r\n"
            ^ "\r\n"
            ^ value
-           ^ "\r\n" )
+           ^ "\r\n")
     |> String.concat ~sep:""
   in
   let data =
@@ -258,7 +276,7 @@ let send_photo ~chat_id ~photo ~filename ~mimetype =
   let boundary = "--BoundaryFDGigsjIGGJEn" in
   let body =
     multipart_body
-      ~fields:["chat_id", Int64.to_string chat_id]
+      ~fields:[ "chat_id", Int64.to_string chat_id ]
       ~name:"photo"
       ~data:photo
       ~filename
@@ -268,7 +286,7 @@ let send_photo ~chat_id ~photo ~filename ~mimetype =
   Http.request
     `POST
     uri
-    ~http_headers:["Content-Type", "multipart/form-data; boundary=" ^ boundary]
+    ~http_headers:[ "Content-Type", "multipart/form-data; boundary=" ^ boundary ]
     ~body:(Some body)
     ()
 ;;
@@ -276,17 +294,19 @@ let send_photo ~chat_id ~photo ~filename ~mimetype =
 (* Utils *)
 let parse_update update =
   match update with
-  | {message = Some {chat = {id = chat_id; _}; text = Some t; _}; _} ->
+  | { message = Some { chat = { id = chat_id; _ }; text = Some t; _ }; _ } ->
     (match String.split t ~on:' ' with
     | command :: args ->
       let command = command |> Caml.String.trim |> String.lowercase in
       let args = args |> List.map ~f:Caml.String.trim in
       `Command (command, args, chat_id, update)
     | _ -> `Unknown)
-  | {message = Some {chat = {id = chat_id; _}; photo = photos; _}; _}
+  | { message = Some { chat = { id = chat_id; _ }; photo = photos; _ }; _ }
     when not (List.is_empty photos) -> `Photos (photos, chat_id, update)
-  | {callback_query = Some {message = Some {chat = {id = chat_id; _}; _}; data; _}; _} ->
+  | { callback_query = Some { message = Some { chat = { id = chat_id; _ }; _ }; data; _ }
+    ; _
+    } ->
     let sexp = Option.map data ~f:Sexp.of_string in
     `Callback_query (sexp, chat_id, update)
-  | _ -> `Unknown 
+  | _ -> `Unknown
 ;;

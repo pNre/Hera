@@ -2,4 +2,5 @@
 **/.merlin
 db/*
 env.sh
+.DS_Store
 

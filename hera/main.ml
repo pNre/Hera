@@ -8,7 +8,7 @@ let failure_handler _socket exn =
 
 let request_handler ~body _ req =
   match req, Request.uri req |> Uri.path with
-  | {Request.meth = `POST; _}, path when path = "/" ^ Telegram.token ->
+  | {Request.meth = `POST; _}, path when String.equal path ("/" ^ Telegram.token) ->
     Body.to_string body
     >>= fun body ->
     Logging.Main.info "%s" body;
@@ -35,7 +35,7 @@ let main port () =
         Logging.Main.info "Starting webserver";
         Server.create
           ~on_handler_error:(`Call failure_handler)
-          (Async_extra.Tcp.Where_to_listen.of_port port)
+          (Async_unix.Tcp.Where_to_listen.of_port port)
           request_handler )
   >>= fun _ -> Deferred.never ()
 ;;

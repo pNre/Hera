@@ -67,7 +67,7 @@ let of_rfc822 string =
         |> Time.Span.to_sec
         |> Ptime.of_float_s
       in
-      if None = time then Logging.Module.error "Invalid date %s" string;
+      if Option.is_none time then Logging.Module.error "Invalid date %s" string;
       time
   in
   parse
