@@ -52,16 +52,37 @@ let scale_image image width =
   (rgb24 image)#resize None width height
 ;;
 
-let merge_eyes e1 e2 =
+let inset_rect f x y width_limit height_limit =
+  let x0 = Int.clamp_exn (f.x - x) ~min:0 ~max:width_limit in
+  let y0 = Int.clamp_exn (f.y - y) ~min:0 ~max:height_limit in
+  let w0 = Int.clamp_exn (f.w + (x * 2)) ~min:0 ~max:width_limit in
+  let h0 = Int.clamp_exn (f.h + (y * 2)) ~min:0 ~max:height_limit in
+  { x = x0; y = y0; w = w0; h = h0 }
+;;
+
+let merge_eyes e1 e2 width_limit height_limit =
   let min_ex = Int.min e1.x e2.x in
   let min_ey = Int.min e1.y e2.y in
   let eho1 = e1.x + e1.w in
   let eho2 = e2.x + e2.w in
   let ev1 = e1.y + e1.h in
-  let ev2 = e2.y + e2.h in
+  let ev2 = e1.y + e2.h in
   let ew = Int.max eho1 eho2 - min_ex in
   let eh = Int.max ev1 ev2 - min_ey in
-  { x = min_ex; y = min_ey; w = ew; h = eh }
+  inset_rect
+    { x = min_ex; y = min_ey; w = ew; h = eh }
+    ew
+    (eh * 2)
+    width_limit
+    height_limit
+;;
+
+let inset_face f x y width_limit height_limit =
+  let x0 = Int.clamp_exn (f.x - x) ~min:0 ~max:width_limit in
+  let y0 = Int.clamp_exn (f.y - y) ~min:0 ~max:height_limit in
+  let w0 = Int.clamp_exn (f.w + (x * 2)) ~min:0 ~max:width_limit in
+  let h0 = Int.clamp_exn (f.h + (y * 2)) ~min:0 ~max:height_limit in
+  { x = x0; y = y0; w = w0; h = h0 }
 ;;
 
 let download_and_process_photo file_id =
@@ -81,17 +102,34 @@ let download_and_process_photo file_id =
           (show_rect face)
           (show_rect e1)
           (show_rect e2);
-        let eyes = merge_eyes e1 e2 in
         let image = load photo [] in
-        let cropped_face = sub image face.x face.y face.w face.h in
+        let eyes = merge_eyes e1 e2 image#width image#height in
+        let face_large = face in
+        let face_small =
+          inset_face
+            face
+            (-image#width / 10)
+            (-image#height / 10)
+            image#width
+            image#height
+        in
+        let cropped_face_large =
+          sub image face_large.x face_large.y face_large.w face_large.h
+        in
+        let cropped_face_small =
+          sub image face_small.x face_small.y face_small.w face_small.h
+        in
         let cropped_eyes = sub image eyes.x eyes.y eyes.w eyes.h in
-        let photo_face = photo ^ "face" in
+        let photo_face_large = photo ^ "face_l" in
+        let photo_face_small = photo ^ "face_s" in
         let photo_eyes = photo ^ "eyes" in
-        let cropped_face = scale_image cropped_face 300 in
+        let cropped_face_large = scale_image cropped_face_large 300 in
+        let cropped_face_small = scale_image cropped_face_small 300 in
         let cropped_eyes = scale_image cropped_eyes 300 in
-        cropped_face#save photo_face (Some Jpeg) [ Save_Quality 70 ];
+        cropped_face_large#save photo_face_large (Some Jpeg) [ Save_Quality 70 ];
+        cropped_face_small#save photo_face_small (Some Jpeg) [ Save_Quality 70 ];
         cropped_eyes#save photo_eyes (Some Jpeg) [ Save_Quality 70 ];
-        Ok (photo_face, photo_eyes)
+        Ok [ photo_face_large; photo_face_small; photo_eyes ]
       | Some (_, eyes) ->
         Logging.Module.info "Face found, %i eyes" (List.length eyes);
         Error Image_process
@@ -113,17 +151,16 @@ let download_and_process_photo file_id =
 let compress_photos chat_id photos =
   let process file_id =
     download_and_process_photo file_id
-    >>=? (fun (face, eyes) ->
-           let face = Reader.file_contents face in
-           let eyes = Reader.file_contents eyes in
-           Deferred.both face eyes >>| Result.return)
+    >>=? (fun photos ->
+           photos |> List.map ~f:Reader.file_contents |> Deferred.all >>| Result.return)
     >>= fun content ->
     match content with
-    | Ok (face, eyes) ->
-      Telegram.send_photo ~chat_id ~photo:face ~filename:"fc1.jpg" ~mimetype:"image/jpg"
-      >>= fun _ ->
-      Telegram.send_photo ~chat_id ~photo:eyes ~filename:"fc2.jpg" ~mimetype:"image/jpg"
-      >>| ignore
+    | Ok photos ->
+      photos
+      |> Deferred.List.iteri ~f:(fun index photo ->
+             let filename = sprintf "fc_%i.jpg" index in
+             Telegram.send_photo ~chat_id ~photo ~filename ~mimetype:"image/jpg"
+             >>| ignore)
     | _ -> Deferred.unit
   in
   let compare_photos a b =

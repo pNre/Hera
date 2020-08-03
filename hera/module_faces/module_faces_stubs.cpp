@@ -103,13 +103,6 @@ extern "C"
           max_y = max(max_y, faceLandmarks[j].y);
         }
 
-        float x_padding = max_x - min_x;
-        min_x -= x_padding;
-        max_x += x_padding;
-        float y_padding = max_y - min_y;
-        min_y -= y_padding;
-        max_y += y_padding;
-
         rect_left = caml_alloc(4, 0);
         Store_field(rect_left, 0, Val_int(round(min_x)));
         Store_field(rect_left, 1, Val_int(round(min_y)));
