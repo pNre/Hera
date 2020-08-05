@@ -17,7 +17,34 @@ using namespace std;
 extern "C"
 {
   CAMLprim value
-  caml_try_detect(value photo_path, value face_config_path, value face_weights_path, value eyes_model_path)
+  mapFaceLandmarkRect(vector<cv::Point2f> faceLandmarks, int start, int end)
+  {
+    CAMLparam0();
+
+    float min_x = faceLandmarks[start].x;
+    float max_x = faceLandmarks[start].x;
+    float min_y = faceLandmarks[start].y;
+    float max_y = faceLandmarks[start].y;
+
+    for (size_t j = start + 1; j <= end; j++)
+    {
+      min_x = min(min_x, faceLandmarks[j].x);
+      max_x = max(max_x, faceLandmarks[j].x);
+      min_y = min(min_y, faceLandmarks[j].y);
+      max_y = max(max_y, faceLandmarks[j].y);
+    }
+
+    CAMLlocal1(rect_left);
+    rect_left = caml_alloc(4, 0);
+    Store_field(rect_left, 0, Val_int(round(min_x)));
+    Store_field(rect_left, 1, Val_int(round(min_y)));
+    Store_field(rect_left, 2, Val_int(round(max_x - min_x)));
+    Store_field(rect_left, 3, Val_int(round(max_y - min_y)));
+    CAMLreturn(rect_left);
+  }
+
+  CAMLprim value
+  caml_detect_faces(value photo_path, value face_config_path, value face_weights_path, value eyes_model_path)
   {
     CAMLparam4(photo_path, face_config_path, face_weights_path, eyes_model_path);
     CAMLlocal2(faces_cli, faces_cons);
@@ -35,8 +62,7 @@ extern "C"
 
     Mat image = imread(_photo_path);
     auto faceRects = faceDetector.detect_face_rectangles(image);
-    auto landmarks = keypointDetector
-                         .detect_key_points(faceRects, image);
+    auto landmarks = keypointDetector.detect_key_points(faceRects, image);
 
     caml_stat_free(_face_config_path);
     caml_stat_free(_face_weights_path);
@@ -48,8 +74,8 @@ extern "C"
 
     for (std::size_t i = 0; i < faceRects.size(); i++)
     {
-      CAMLlocal2(eyes_cli, eyes_cons);
-      eyes_cli = Val_emptylist;
+      CAMLlocal2(landmarks_cli, eyes_cons);
+      landmarks_cli = Val_emptylist;
 
       auto faceLandmarks = landmarks[i];
 
@@ -65,54 +91,20 @@ extern "C"
         // drawPolyline(im, faceLandmarks, 48, 59, true);    // Outer lip
         // drawPolyline(im, faceLandmarks, 60, 67, true);    // Inner lip
 
-        float min_x = faceLandmarks[36].x;
-        float max_x = faceLandmarks[36].x;
-        float min_y = faceLandmarks[36].y;
-        float max_y = faceLandmarks[36].y;
-
-        for (std::size_t j = 37; j <= 41; j++)
-        {
-          min_x = min(min_x, faceLandmarks[j].x);
-          max_x = max(max_x, faceLandmarks[j].x);
-          min_y = min(min_y, faceLandmarks[j].y);
-          max_y = max(max_y, faceLandmarks[j].y);
-        }
-
-        CAMLlocal1(rect_left);
-        rect_left = caml_alloc(4, 0);
-        Store_field(rect_left, 0, Val_int(round(min_x)));
-        Store_field(rect_left, 1, Val_int(round(min_y)));
-        Store_field(rect_left, 2, Val_int(round(max_x - min_x)));
-        Store_field(rect_left, 3, Val_int(round(max_y - min_y)));
+        eyes_cons = caml_alloc(2, 0);
+        Store_field(eyes_cons, 0, mapFaceLandmarkRect(faceLandmarks, 17, 21));
+        Store_field(eyes_cons, 1, landmarks_cli);
+        landmarks_cli = eyes_cons;
 
         eyes_cons = caml_alloc(2, 0);
-        Store_field(eyes_cons, 0, rect_left);
-        Store_field(eyes_cons, 1, eyes_cli);
-        eyes_cli = eyes_cons;
-
-        min_x = faceLandmarks[42].x;
-        max_x = faceLandmarks[42].x;
-        min_y = faceLandmarks[42].y;
-        max_y = faceLandmarks[42].y;
-
-        for (std::size_t j = 43; j <= 47; j++)
-        {
-          min_x = min(min_x, faceLandmarks[j].x);
-          max_x = max(max_x, faceLandmarks[j].x);
-          min_y = min(min_y, faceLandmarks[j].y);
-          max_y = max(max_y, faceLandmarks[j].y);
-        }
-
-        rect_left = caml_alloc(4, 0);
-        Store_field(rect_left, 0, Val_int(round(min_x)));
-        Store_field(rect_left, 1, Val_int(round(min_y)));
-        Store_field(rect_left, 2, Val_int(round(max_x - min_x)));
-        Store_field(rect_left, 3, Val_int(round(max_y - min_y)));
+        Store_field(eyes_cons, 0, mapFaceLandmarkRect(faceLandmarks, 22, 26));
+        Store_field(eyes_cons, 1, landmarks_cli);
+        landmarks_cli = eyes_cons;
 
         eyes_cons = caml_alloc(2, 0);
-        Store_field(eyes_cons, 0, rect_left);
-        Store_field(eyes_cons, 1, eyes_cli);
-        eyes_cli = eyes_cons;
+        Store_field(eyes_cons, 0, mapFaceLandmarkRect(faceLandmarks, 48, 59));
+        Store_field(eyes_cons, 1, landmarks_cli);
+        landmarks_cli = eyes_cons;
       }
 
       CAMLlocal1(face_rect);
@@ -125,7 +117,7 @@ extern "C"
       CAMLlocal1(face_eyes_pair);
       face_eyes_pair = caml_alloc(2, 0);
       Store_field(face_eyes_pair, 0, face_rect);
-      Store_field(face_eyes_pair, 1, eyes_cli);
+      Store_field(face_eyes_pair, 1, landmarks_cli);
 
       faces_cons = caml_alloc(2, 0);
       Store_field(faces_cons, 0, face_eyes_pair);

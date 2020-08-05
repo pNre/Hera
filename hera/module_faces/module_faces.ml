@@ -2,6 +2,7 @@ open Async
 open Images
 open OImages
 open Core
+module Image_id = Core_kernel.Unique_id.Int63 ()
 
 type rect =
   { x : int
@@ -17,7 +18,7 @@ external detect_faces'
   -> string
   -> string
   -> (rect * rect list) list
-  = "caml_try_detect"
+  = "caml_detect_faces"
 
 type error =
   | Http of Http.error
@@ -33,6 +34,9 @@ let detect_faces photo =
 ;;
 
 let is_waiting_for_image = ref false
+let default_quality = 70
+let quality = ref default_quality
+let scaled_width = 300
 
 let write_response_to_temp_file (_, body) =
   let output = Filename.temp_file "faces" "" in
@@ -52,29 +56,16 @@ let scale_image image width =
   (rgb24 image)#resize None width height
 ;;
 
-let inset_rect f x y width_limit height_limit =
-  let x0 = Int.clamp_exn (f.x - x) ~min:0 ~max:width_limit in
-  let y0 = Int.clamp_exn (f.y - y) ~min:0 ~max:height_limit in
-  let w0 = Int.clamp_exn (f.w + (x * 2)) ~min:0 ~max:width_limit in
-  let h0 = Int.clamp_exn (f.h + (y * 2)) ~min:0 ~max:height_limit in
-  { x = x0; y = y0; w = w0; h = h0 }
-;;
-
-let merge_eyes e1 e2 width_limit height_limit =
-  let min_ex = Int.min e1.x e2.x in
-  let min_ey = Int.min e1.y e2.y in
-  let eho1 = e1.x + e1.w in
-  let eho2 = e2.x + e2.w in
-  let ev1 = e1.y + e1.h in
-  let ev2 = e1.y + e2.h in
-  let ew = Int.max eho1 eho2 - min_ex in
-  let eh = Int.max ev1 ev2 - min_ey in
-  inset_rect
-    { x = min_ex; y = min_ey; w = ew; h = eh }
-    ew
-    (eh * 2)
-    width_limit
-    height_limit
+let landmarks_rect e1 e2 mouth =
+  let min3 a b c = Int.min (Int.min a b) c in
+  let max3 a b c = Int.max (Int.max a b) c in
+  let r_max_x rect = rect.x + rect.w in
+  let r_max_y rect = rect.y + rect.h in
+  let min_x = min3 e1.x e2.x mouth.x in
+  let min_y = min3 e1.y e2.y mouth.y in
+  let max_x = max3 (r_max_x e1) (r_max_x e2) (r_max_x mouth) in
+  let max_y = max3 (r_max_y e1) (r_max_y e2) (r_max_y mouth) in
+  { x = min_x; y = min_y; w = max_x - min_x; h = max_y - min_y }
 ;;
 
 let inset_face f x y width_limit height_limit =
@@ -94,44 +85,45 @@ let download_and_process_photo file_id =
   let process_photo photo =
     try
       let rects = detect_faces photo in
-      let face = List.find rects ~f:(fun (_, eyes) -> List.length eyes = 2) in
+      let face = List.find rects ~f:(fun (_, landmarks) -> List.length landmarks = 3) in
       match face with
-      | Some (face, [ e1; e2 ]) ->
+      | Some (face, [ e1; e2; mouth ]) ->
         Logging.Module.info
-          "Face: %s, L-eye: %s, R-eye: %s"
+          "Face: %s, L-eyebrow: %s, R-eyebrow: %s, mouth: %s"
           (show_rect face)
           (show_rect e1)
-          (show_rect e2);
+          (show_rect e2)
+          (show_rect mouth);
         let image = load photo [] in
-        let eyes = merge_eyes e1 e2 image#width image#height in
+        Logging.Module.info "W: %d, H: %d" image#width image#height;
+        let face_zoomed = landmarks_rect e1 e2 mouth in
         let face_large = face in
         let face_small =
-          inset_face
-            face
-            (-image#width / 10)
-            (-image#height / 10)
-            image#width
-            image#height
+          inset_face face (face.w / 3) (face.h / 3) image#width image#height
         in
-        let cropped_face_large =
-          sub image face_large.x face_large.y face_large.w face_large.h
-        in
-        let cropped_face_small =
-          sub image face_small.x face_small.y face_small.w face_small.h
-        in
-        let cropped_eyes = sub image eyes.x eyes.y eyes.w eyes.h in
-        let photo_face_large = photo ^ "face_l" in
-        let photo_face_small = photo ^ "face_s" in
-        let photo_eyes = photo ^ "eyes" in
-        let cropped_face_large = scale_image cropped_face_large 300 in
-        let cropped_face_small = scale_image cropped_face_small 300 in
-        let cropped_eyes = scale_image cropped_eyes 300 in
-        cropped_face_large#save photo_face_large (Some Jpeg) [ Save_Quality 70 ];
-        cropped_face_small#save photo_face_small (Some Jpeg) [ Save_Quality 70 ];
-        cropped_eyes#save photo_eyes (Some Jpeg) [ Save_Quality 70 ];
-        Ok [ photo_face_large; photo_face_small; photo_eyes ]
-      | Some (_, eyes) ->
-        Logging.Module.info "Face found, %i eyes" (List.length eyes);
+        let cropped rect = sub image rect.x rect.y rect.w rect.h in
+        let cropped_face_large = cropped face_large in
+        let cropped_face_small = cropped face_small in
+        let cropped_face_zoomed = cropped face_zoomed in
+        Ok
+          ((if !quality < default_quality
+           then
+             [ rgb24 image
+             ; scale_image cropped_face_small scaled_width
+             ; scale_image cropped_face_large scaled_width
+             ; scale_image cropped_face_zoomed scaled_width
+             ]
+           else
+             [ scale_image cropped_face_small scaled_width
+             ; scale_image cropped_face_large scaled_width
+             ; scale_image cropped_face_zoomed scaled_width
+             ])
+          |> List.map ~f:(fun image ->
+                 let name = photo ^ (Image_id.create () |> Image_id.to_string) in
+                 image#save name (Some Jpeg) [ Save_Quality !quality ];
+                 name))
+      | Some (_, landmarks) ->
+        Logging.Module.info "Face found, %i landmarks" (List.length landmarks);
         Error Image_process
       | _ -> Error Image_process
     with
@@ -176,12 +168,20 @@ let compress_photos chat_id photos =
 
 (* Bot module *)
 let register () = ()
-let help () = "*Faces*\n`fc`"
+let help () = "*Faces*\n`fc [quality?]`"
 
 let on_update update =
   match Telegram.parse_update update with
-  | `Command ("fc", _, chat_id, _) ->
+  | `Command ("fc", args, chat_id, _) ->
     is_waiting_for_image := true;
+    quality
+      := args
+         |> List.last
+         |> Option.map ~f:Caml.String.trim
+         |> Option.map ~f:int_of_string_opt
+         |> Option.join
+         |> Option.map ~f:(fun quality -> min 100 (max 1 quality))
+         |> Option.value ~default:default_quality;
     don't_wait_for (Telegram.send_message ~chat_id ~text:"Send me a picture" () >>| ignore);
     true
   | `Photos (photos, chat_id, _) when !is_waiting_for_image ->
