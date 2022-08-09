@@ -2,21 +2,27 @@
  (name module_faces)
  (cxx_names module_faces_stubs FaceDetector KeyPointDetector)
  (cxx_flags
-  (:include cxx_flags.sexp)
+  (:include c_flags.sexp)
   -x
   c++
   --std=c++14
   -fPIC)
  (c_library_flags
-  (:include c_library_flags.sexp)
+  (:include c_libs.sexp)
   -lstdc++)
- (libraries async async_ssl camlimages.core camlimages.jpeg camlimages.png
-   bot logging)
+ (libraries
+  async
+  async_ssl
+  camlimages.core
+  camlimages.jpeg
+  camlimages.png
+  bot
+  logging)
  (preprocess
   (pps ppx_deriving.show)))
 
 (rule
- (targets cxx_flags.sexp c_library_flags.sexp)
+ (targets c_flags.sexp c_libs.sexp)
  (deps
   (:discover config/discover.exe))
  (action

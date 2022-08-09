@@ -2,7 +2,7 @@ open Async
 open Images
 open OImages
 open Core
-module Image_id = Core_kernel.Unique_id.Int63 ()
+module Image_id = Core.Unique_id.Int63 ()
 
 type rect =
   { x : int
@@ -39,7 +39,7 @@ let quality = ref default_quality
 let scaled_width = 300
 
 let write_response_to_temp_file (_, body) =
-  let output = Filename.temp_file "faces" "" in
+  let output = Filename_unix.temp_file "faces" "" in
   Logging.Module.info "Writing image in %s" output;
   let pipe_r = Http.pipe_of_body body in
   Writer.with_file output ~f:(fun writer ->

@@ -37,7 +37,7 @@ let start_checking position send =
         to_string_hum ~delimiter:'.' ~decimals:4 change ^ "%")
     in
     let market_time time =
-      Time.(
+      Time_unix.(
         let time =
           time.Markets.raw
           |> Int63.of_int64_trunc
@@ -46,7 +46,7 @@ let start_checking position send =
         in
         let zone = Zone.find_exn "Europe/Rome" in
         let formatted_zone = Zone.abbreviation zone time in
-        Time.format time "%d/%m/%Y %H:%M:%S" ~zone ^ " " ^ formatted_zone)
+        format time "%d/%m/%Y %H:%M:%S" ~zone ^ " " ^ formatted_zone)
     in
     let format quote =
       Markets.(
@@ -63,12 +63,12 @@ let start_checking position send =
       Markets.quotes ~symbol:position.pos.symbol
       >>= fun result ->
       Result.iter result ~f:(fun quote ->
-          let price = Bignum.of_string quote.regular_market_price.fmt in
-          if has_price_changed price
-          then (
-            Mvar.set last_price price;
-            format quote |> send)
-          else ());
+        let price = Bignum.of_string quote.regular_market_price.fmt in
+        if has_price_changed price
+        then (
+          Mvar.set last_price price;
+          format quote |> send)
+        else ());
       Deferred.unit
   in
   let cancellation = Ivar.create () in
@@ -91,22 +91,22 @@ let list ~owner_id ~reply =
     then
       positions
       |> List.iter ~f:(fun position ->
-             let price = Bignum.to_string_accurate position.price in
-             let size = Bignum.to_string_accurate position.size in
-             let total =
-               Bignum.(
-                 to_string_hum ~delimiter:'.' ~decimals:4 (position.price * position.size))
-             in
-             let text =
-               sprintf
-                 "_ID:_ %d\n*Symbol*: `%s`\n*Price*: `%s`\n*Size*: `%s`\n*Total*: `%s`"
-                 position.pos.id
-                 position.pos.symbol
-                 (price ^ " " ^ position.pos.currency)
-                 size
-                 (total ^ " " ^ position.pos.currency)
-             in
-             reply text)
+           let price = Bignum.to_string_accurate position.price in
+           let size = Bignum.to_string_accurate position.size in
+           let total =
+             Bignum.(
+               to_string_hum ~delimiter:'.' ~decimals:4 (position.price * position.size))
+           in
+           let text =
+             sprintf
+               "_ID:_ %d\n*Symbol*: `%s`\n*Price*: `%s`\n*Size*: `%s`\n*Total*: `%s`"
+               position.pos.id
+               position.pos.symbol
+               (price ^ " " ^ position.pos.currency)
+               size
+               (total ^ " " ^ position.pos.currency)
+           in
+           reply text)
     else reply "No positions"
   in
   positions_for_owner (Int64.to_string owner_id) >>> Result.iter ~f:send

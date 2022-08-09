@@ -3,4 +3,6 @@
 db/*
 env.sh
 .DS_Store
+*.sexp
+*.sqlite
 

@@ -11,7 +11,7 @@ let is_waiting_for_image = ref false
 let quality = ref 70
 
 let write_response_to_temp_file (_, body) =
-  let output = Filename.temp_file "morejpeg" "" in
+  let output = Filename_unix.temp_file "morejpeg" "" in
   Logging.Module.info "Writing image in %s" output;
   let pipe_r = Http.pipe_of_body body in
   Writer.with_file output ~f:(fun writer ->

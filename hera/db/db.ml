@@ -1,5 +1,7 @@
 open Async
 open Caqti_async
+open Caqti_request.Infix
+open Caqti_type.Std
 open Core
 
 (* Types *)
@@ -10,36 +12,52 @@ end
 (* Queries *)
 module Queries = struct
   (* Types *)
-  let select_subscription_type = Caqti_type.(tup4 int string string string)
-  let insert_subscription_type = Caqti_type.(tup3 string string string)
-  let sent_item_type = Caqti_type.string
-  let preference_type = Caqti_type.(tup3 string string string)
+  let select_subscription =
+    let open Types.Subscription in
+    let encode { id; subscriber_id; type_id; feed_url } =
+      Ok (id, subscriber_id, type_id, feed_url)
+    in
+    let decode (id, subscriber_id, type_id, feed_url) =
+      Ok { id; subscriber_id; type_id; feed_url }
+    in
+    let rep = tup4 int string string string in
+    custom ~encode ~decode rep
+  ;;
 
-  let select_market_position_type =
-    Caqti_type.(tup2 (tup2 int string) (tup4 string string string string))
+  let insert_subscription_type = tup3 string string string
+  let sent_item_type = string
+  let insert_preference_type = tup3 string string string
+
+  let select_preference =
+    let open Types.Preference in
+    let encode { owner_id; key; value } = Ok (owner_id, key, value) in
+    let decode (owner_id, key, value) = Ok { owner_id; key; value } in
+    let rep = tup3 string string string in
+    custom ~encode ~decode rep
+  ;;
+
+  let select_market_position =
+    let open Types.Market_position in
+    let encode { id; owner_id; symbol; price; size; currency } =
+      Ok ((id, owner_id), (symbol, price, size, currency))
+    in
+    let decode ((id, owner_id), (symbol, price, size, currency)) =
+      Ok { id; owner_id; symbol; price; size; currency }
+    in
+    let rep = tup2 (tup2 int string) (tup4 string string string string) in
+    custom ~encode ~decode rep
   ;;
 
   let insert_market_position_type =
     Caqti_type.(tup3 string string (tup3 string string string))
   ;;
 
-  let subscription_of_result (id, subscriber_id, type_id, feed_url) =
-    Types.Subscription.make ~id ~subscriber_id ~type_id ~feed_url ()
-  ;;
-
-  let preference_of_result (owner_id, key, value) =
-    Types.Preference.make ~owner_id ~key ~value
-  ;;
-
-  let market_position_of_result ((id, owner_id), (symbol, price, size, currency)) =
-    Types.Market_position.make ~id ~owner_id ~symbol ~price ~size ~currency ()
-  ;;
-
   (* Initialization *)
   let create =
-    let enable_foreign_keys = {| PRAGMA foreign_keys = ON |} in
+    let enable_foreign_keys = (unit ->. unit) @@ {| PRAGMA foreign_keys = ON |} in
     let subscription =
-      {| CREATE TABLE IF NOT EXISTS "subscription" (
+      (unit ->. unit)
+      @@ {| CREATE TABLE IF NOT EXISTS "subscription" (
            "id" INTEGER NOT NULL PRIMARY KEY,
            "subscriber_id" VARCHAR(64) NOT NULL,
            "type_id" VARCHAR(32) NOT NULL,
@@ -47,23 +65,28 @@ module Queries = struct
            CONSTRAINT subscription_un UNIQUE (subscriber_id, type_id, feed_url)) |}
     in
     let subscription_subscriber_id_index =
-      {| CREATE INDEX IF NOT EXISTS subscription_subscriber ON subscription (subscriber_id) |}
+      (unit ->. unit)
+      @@ {| CREATE INDEX IF NOT EXISTS subscription_subscriber ON subscription (subscriber_id) |}
     in
     let subscription_feed_index =
-      {| CREATE INDEX IF NOT EXISTS subscription_feed ON subscription (feed_url) |}
+      (unit ->. unit)
+      @@ {| CREATE INDEX IF NOT EXISTS subscription_feed ON subscription (feed_url) |}
     in
     let sent_item =
-      {| CREATE TABLE IF NOT EXISTS "sent_item" ("item_url" TEXT NOT NULL PRIMARY KEY) |}
+      (unit ->. unit)
+      @@ {| CREATE TABLE IF NOT EXISTS "sent_item" ("item_url" TEXT NOT NULL PRIMARY KEY) |}
     in
     let preferences =
-      {| CREATE TABLE IF NOT EXISTS "preference" (
+      (unit ->. unit)
+      @@ {| CREATE TABLE IF NOT EXISTS "preference" (
            "owner_id" VARCHAR(64) NOT NULL,
            "key" VARCHAR(32) NOT NULL,
            "value" TEXT DEFAULT NULL,
            CONSTRAINT preference_un UNIQUE (owner_id, key)) |}
     in
     let market_position =
-      {| CREATE TABLE IF NOT EXISTS "market_position" (
+      (unit ->. unit)
+      @@ {| CREATE TABLE IF NOT EXISTS "market_position" (
            "id" INTEGER NOT NULL PRIMARY KEY,
            "owner_id" VARCHAR(64) NOT NULL,
            "symbol" VARCHAR(32) NOT NULL,
@@ -73,7 +96,8 @@ module Queries = struct
            CONSTRAINT market_position_un UNIQUE (owner_id, symbol)) |}
     in
     let market_position_owner_id_index =
-      {| CREATE INDEX IF NOT EXISTS market_positon_owner ON market_position (owner_id) |}
+      (unit ->. unit)
+      @@ {| CREATE INDEX IF NOT EXISTS market_positon_owner ON market_position (owner_id) |}
     in
     [ enable_foreign_keys
     ; subscription
@@ -84,137 +108,111 @@ module Queries = struct
     ; market_position
     ; market_position_owner_id_index
     ]
-    |> List.map ~f:(Caqti_request.exec Caqti_type.unit)
   ;;
 
   (* Subscriptions *)
   let subscriptions_for_subscriber =
-    Caqti_request.collect
-      Caqti_type.string
-      select_subscription_type
-      {| SELECT *
+    (string ->* select_subscription)
+    @@ {| SELECT *
            FROM subscription
            WHERE subscriber_id = ?
            ORDER BY feed_url ASC |}
   ;;
 
   let subscriptions =
-    Caqti_request.collect
-      Caqti_type.unit
-      select_subscription_type
-      {| SELECT *
+    (unit ->* select_subscription)
+    @@ {| SELECT *
            FROM subscription
            ORDER BY feed_url ASC |}
   ;;
 
   let find_subscription =
-    Caqti_request.find
-      Caqti_type.(tup2 string string)
-      select_subscription_type
-      {| SELECT *
+    (tup2 string string ->? select_subscription)
+    @@ {| SELECT *
            FROM subscription
            WHERE subscriber_id = ? AND feed_url = ? |}
   ;;
 
   let insert_subscription =
-    Caqti_request.exec
-      insert_subscription_type
-      {| INSERT INTO subscription
+    (insert_subscription_type ->. unit)
+    @@ {| INSERT INTO subscription
            (subscriber_id, type_id, feed_url)
            VALUES
            (?, ?, ?) |}
   ;;
 
   let delete_subscription =
-    Caqti_request.exec
-      Caqti_type.(tup2 string string)
-      {| DELETE FROM subscription
+    (tup2 string string ->. unit)
+    @@ {| DELETE FROM subscription
            WHERE subscriber_id = ? AND feed_url = ? |}
   ;;
 
   (* Market positions *)
   let market_positions =
-    Caqti_request.collect
-      Caqti_type.unit
-      select_market_position_type
-      {| SELECT * FROM market_position |}
+    (unit ->* select_market_position) @@ {| SELECT * FROM market_position |}
   ;;
 
   let market_positions_for_owner =
-    Caqti_request.collect
-      Caqti_type.string
-      select_market_position_type
-      {| SELECT * FROM market_position WHERE owner_id = ? |}
+    (string ->* select_market_position)
+    @@ {| SELECT * FROM market_position WHERE owner_id = ? |}
   ;;
 
   let find_market_position =
-    Caqti_request.find
-      Caqti_type.(tup2 string string)
-      select_market_position_type
-      {| SELECT * FROM market_position WHERE owner_id = ? AND symbol = ? |}
+    (tup2 string string ->? select_market_position)
+    @@ {| SELECT * FROM market_position WHERE owner_id = ? AND symbol = ? |}
   ;;
 
   let insert_market_position =
-    Caqti_request.exec
-      insert_market_position_type
-      {| INSERT INTO market_position
+    (insert_market_position_type ->. unit)
+    @@ {| INSERT INTO market_position
            (owner_id, symbol, price, size, currency)
            VALUES
            (?, ?, ?, ?, ?) |}
   ;;
 
   let delete_market_position =
-    Caqti_request.exec
-      Caqti_type.(tup2 string int)
-      {| DELETE FROM market_position WHERE owner_id = ? AND id = ? |}
+    (tup2 string int ->. unit)
+    @@ {| DELETE FROM market_position WHERE owner_id = ? AND id = ? |}
   ;;
 
   (* Sent items *)
   let insert_sent_item =
-    Caqti_request.exec sent_item_type {| INSERT INTO sent_item (item_url) VALUES (?) |}
+    (sent_item_type ->. unit) @@ {| INSERT INTO sent_item (item_url) VALUES (?) |}
   ;;
 
   let find_sent_item =
-    Caqti_request.find
-      sent_item_type
-      Caqti_type.int
-      {| SELECT COUNT(1)
+    (sent_item_type ->! Caqti_type.int)
+    @@ {| SELECT COUNT(1)
            FROM sent_item
            WHERE item_url = ? |}
   ;;
 
   (* Preferences *)
   let find_preference =
-    Caqti_request.find
-      Caqti_type.(tup2 string string)
-      preference_type
-      {| SELECT *
+    (tup2 string string ->? select_preference)
+    @@ {| SELECT *
            FROM preference
            WHERE owner_id = ? AND key = ? |}
   ;;
 
   let preferences =
-    Caqti_request.collect
-      Caqti_type.string
-      preference_type
-      {| SELECT *
+    (string ->* select_preference)
+    @@ {| SELECT *
            FROM preference
            WHERE owner_id = ? |}
   ;;
 
   let insert_preference =
-    Caqti_request.exec
-      preference_type
-      {| INSERT INTO preference
+    (insert_preference_type ->. unit)
+    @@ {| INSERT INTO preference
            (owner_id, key, value)
            VALUES
            (?, ?, ?) |}
   ;;
 
   let delete_preference =
-    Caqti_request.exec
-      Caqti_type.(tup2 string string)
-      {| DELETE FROM preference WHERE owner_id = ? AND key = ? |}
+    (tup2 string string ->. unit)
+    @@ {| DELETE FROM preference WHERE owner_id = ? AND key = ? |}
   ;;
 end
 
@@ -272,21 +270,21 @@ let subscriptions_for_subscriber subscriber_id =
   let subscriptions' (module Connection : Caqti_async.CONNECTION) =
     Connection.collect_list Queries.subscriptions_for_subscriber subscriber_id
   in
-  with_connection subscriptions' >>|? List.map ~f:Queries.subscription_of_result
+  with_connection subscriptions'
 ;;
 
 let subscriptions () =
   let subscriptions' (module Connection : Caqti_async.CONNECTION) =
     Connection.collect_list Queries.subscriptions ()
   in
-  with_connection subscriptions' >>|? List.map ~f:Queries.subscription_of_result
+  with_connection subscriptions'
 ;;
 
 let find_subscription ~subscriber_id ~feed_url =
   let subscription (module Connection : Caqti_async.CONNECTION) =
     Connection.find_opt Queries.find_subscription (subscriber_id, feed_url)
   in
-  with_connection subscription >>|? Option.map ~f:Queries.subscription_of_result
+  with_connection subscription
 ;;
 
 let find_sent_item ~id =
@@ -300,35 +298,35 @@ let find_preference ~owner_id ~key =
   let preference (module Connection : Caqti_async.CONNECTION) =
     Connection.find_opt Queries.find_preference (owner_id, key)
   in
-  with_connection preference >>|? Option.map ~f:Queries.preference_of_result
+  with_connection preference
 ;;
 
 let preferences owner_id =
   let preferences' (module Connection : Caqti_async.CONNECTION) =
     Connection.collect_list Queries.preferences owner_id
   in
-  with_connection preferences' >>|? List.map ~f:Queries.preference_of_result
+  with_connection preferences'
 ;;
 
 let market_positions () =
   let market_positions' (module Connection : Caqti_async.CONNECTION) =
     Connection.collect_list Queries.market_positions ()
   in
-  with_connection market_positions' >>|? List.map ~f:Queries.market_position_of_result
+  with_connection market_positions'
 ;;
 
 let market_positions_for_owner owner_id =
   let market_positions' (module Connection : Caqti_async.CONNECTION) =
     Connection.collect_list Queries.market_positions_for_owner owner_id
   in
-  with_connection market_positions' >>|? List.map ~f:Queries.market_position_of_result
+  with_connection market_positions'
 ;;
 
 let find_market_position ~owner_id ~symbol =
   let market_position (module Connection : Caqti_async.CONNECTION) =
     Connection.find_opt Queries.find_market_position (owner_id, symbol)
   in
-  with_connection market_position >>|? Option.map ~f:Queries.market_position_of_result
+  with_connection market_position
 ;;
 
 (* Insert *)

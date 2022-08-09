@@ -8,19 +8,19 @@ let failure_handler _socket exn =
 
 let request_handler ~body _ req =
   match req, Request.uri req |> Uri.path with
-  | {Request.meth = `POST; _}, path when String.equal path ("/" ^ Telegram.token) ->
+  | { Request.meth = `POST; _ }, path when String.equal path ("/" ^ Telegram.token) ->
     Body.to_string body
     >>= fun body ->
     Logging.Main.info "%s" body;
     let json = Yojson.Safe.from_string body in
     let update = Telegram.update_of_yojson json in
     (match update with
-    | Ok update ->
-      Dispatcher.dispatch update;
-      Server.respond `OK
-    | Error err ->
-      Logging.Main.error "Decoding -> %s" err;
-      Server.respond `Internal_server_error)
+     | Ok update ->
+       Dispatcher.dispatch update;
+       Server.respond `OK
+     | Error err ->
+       Logging.Main.error "Decoding -> %s" err;
+       Server.respond `Internal_server_error)
   | _ -> Server.respond `Not_found
 ;;
 
@@ -36,7 +36,7 @@ let main port () =
         Server.create
           ~on_handler_error:(`Call failure_handler)
           (Async_unix.Tcp.Where_to_listen.of_port port)
-          request_handler )
+          request_handler)
   >>= fun _ -> Deferred.never ()
 ;;
 
@@ -47,5 +47,5 @@ let () =
     [%map_open
       let port = flag "-p" (optional_with_default 8001 int) ~doc:"port to listen on" in
       main port]
-  |> Async.Command.run
+  |> Command_unix.run
 ;;

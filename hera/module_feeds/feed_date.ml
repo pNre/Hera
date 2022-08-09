@@ -41,28 +41,32 @@ let parse_offset = function
 
 let parse_time ?(offset = 0) string =
   match String.split string ~on:':' with
-  | [hr; mn] -> (int_of_string hr, int_of_string mn, 0), offset
-  | [hr; mn; s] -> (int_of_string hr, int_of_string mn, int_of_string s), offset
+  | [ hr; mn ] -> (int_of_string hr, int_of_string mn, 0), offset
+  | [ hr; mn; s ] -> (int_of_string hr, int_of_string mn, int_of_string s), offset
   | _ -> invalid_arg "RFC822.parse_time"
 ;;
 
 let of_rfc822 string =
   let weekday_and_date = String.lsplit2 string ~on:',' in
-  let date = match weekday_and_date with Some (_, x) -> x | _ -> string in
+  let date =
+    match weekday_and_date with
+    | Some (_, x) -> x
+    | _ -> string
+  in
   let components = date |> Caml.String.trim |> String.split ~on:' ' in
   let parse () =
     match components with
-    | [day; month; year; time] ->
+    | [ day; month; year; time ] ->
       Ptime.of_date_time
         ((int_of_string year, int_of_month month, int_of_string day), parse_time time)
-    | [day; month; year; time; offset] ->
+    | [ day; month; year; time; offset ] ->
       Ptime.of_date_time
         ( (int_of_string year, int_of_month month, int_of_string day)
         , parse_time ~offset:(parse_offset offset * 60) time )
     | _ ->
       let time =
         string
-        |> Time.of_string
+        |> Time_unix.of_string
         |> Time.to_span_since_epoch
         |> Time.Span.to_sec
         |> Ptime.of_float_s
