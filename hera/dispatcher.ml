@@ -1,4 +1,3 @@
-open Async
 open Core
 
 let modules =
@@ -7,8 +6,9 @@ let modules =
   ; (module Module_feeds : Bot.Module)
   ; (module Module_air_quality : Bot.Module)
   ; (module Module_morejpeg : Bot.Module)
-  ; (module Module_preferences : Bot.Module) 
-  ; (module Module_faces : Bot.Module) ]
+  ; (module Module_preferences : Bot.Module)
+  ; (module Module_faces : Bot.Module)
+  ]
 ;;
 
 let register m =
@@ -36,8 +36,8 @@ let dispatch update =
     List.fold_left modules ~init:false ~f:(fun handled m -> on_update m update || handled)
   in
   match handled, update with
-  | false, {Telegram.message = Some {chat = {id = chat_id; _}; _}; _} ->
+  | false, { Telegram.message = Some { chat = { id = chat_id; _ }; _ }; _ } ->
     let text = modules_help () in
-    don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
+    Telegram.send_message_don't_wait ~chat_id ~text ()
   | _ -> ()
 ;;

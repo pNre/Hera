@@ -153,7 +153,7 @@ let add ~owner_id ~symbol ~price ~size ~reply =
       let error_string =
         match error with
         | `Db e -> Db.string_of_error e
-        | `Market e -> Markets.string_of_error e
+        | `Market err -> Error_handler.string_of_error err
       in
       let text = sprintf "Couldn't add position: %s" error_string in
       reply text

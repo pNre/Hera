@@ -7,7 +7,7 @@
   async_ssl
   cohttp
   cohttp-async
-  yojson
+  jsonaf
   uri
   http
   telegram

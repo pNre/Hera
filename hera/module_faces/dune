@@ -19,7 +19,7 @@
   bot
   logging)
  (preprocess
-  (pps ppx_deriving.show)))
+  (pps ppx_deriving.show ppx_let)))
 
 (rule
  (targets c_flags.sexp c_libs.sexp)

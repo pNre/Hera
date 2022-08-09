@@ -5,15 +5,17 @@ open Markets
 let handle_failure chat_id err =
   Logging.Module.error "%s" err;
   let text = sprintf "No results (`%s`)" err in
-  don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
+  Telegram.send_message_don't_wait ~chat_id ~text ()
 ;;
-
-let reply chat_id text = Telegram.send_message ~chat_id ~text () |> don't_wait_for
 
 (* Continous updates *)
 let load_positions () =
   let start_checking_position position =
-    Position.start_checking position (reply (Int64.of_string position.pos.owner_id))
+    Position.start_checking position (fun text ->
+      Telegram.send_message_don't_wait
+        ~chat_id:(Int64.of_string position.pos.owner_id)
+        ~text
+        ())
   in
   Position.positions () >>> Result.iter ~f:(List.iter ~f:start_checking_position)
 ;;
@@ -26,14 +28,16 @@ let handle_stock_price_success chat_id quote =
       quote.regular_market_time.fmt
       quote.regular_market_price.fmt
   in
-  don't_wait_for (Telegram.send_message ~chat_id ~text () >>| ignore)
+  Telegram.send_message_don't_wait ~chat_id ~text ()
 ;;
 
 let get_time_series ~chat_id ~stock =
   Markets.quotes ~symbol:stock
   >>> function
   | Ok quote -> handle_stock_price_success chat_id quote
-  | Error (Decoding err) -> handle_failure chat_id ("Invalid response: `" ^ err ^ "`")
+  | Error (`Err err) -> handle_failure chat_id ("Invalid response: `" ^ err ^ "`")
+  | Error (`Exn exn) ->
+    handle_failure chat_id ("Invalid response: `" ^ Exn.to_string exn ^ "`")
   | Error _ -> handle_failure chat_id ("No stocks found for " ^ stock)
 ;;
 
@@ -49,6 +53,7 @@ let help () =
 ;;
 
 let on_update update =
+  let reply chat_id text = Telegram.send_message_don't_wait ~chat_id ~text () in
   match Telegram.parse_update update with
   | `Command ("ms", stock :: _, chat_id, _) ->
     get_time_series ~chat_id ~stock;

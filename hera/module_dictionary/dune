@@ -1,4 +1,5 @@
 (library
  (name module_dictionary)
- (libraries async async_ssl yojson ppx_deriving_yojson.runtime bot logging)
- (preprocess (pps ppx_deriving_yojson)))
+ (libraries async async_ssl jsonaf bot logging)
+ (preprocess
+  (pps ppx_jsonaf_conv ppx_let)))

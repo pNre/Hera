@@ -16,11 +16,9 @@ let message_preferences chat_id =
 ;;
 
 let reply chat_id text =
-  message_preferences chat_id
-  >>= (fun disable_web_page_preview ->
-        Telegram.send_message ~chat_id ~text ~parse_mode:None ~disable_web_page_preview ()
-        >>| ignore)
-  |> don't_wait_for
+  don't_wait_for
+    (let%bind disable_web_page_preview = message_preferences chat_id in
+     Telegram.send_message' ~chat_id ~text ~parse_mode:None ~disable_web_page_preview ())
 ;;
 
 (* Init *)

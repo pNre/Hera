@@ -20,11 +20,6 @@ external detect_faces'
   -> (rect * rect list) list
   = "caml_detect_faces"
 
-type error =
-  | Http of Http.error
-  | Image_process
-  | Image_download
-
 let detect_faces photo =
   detect_faces'
     photo
@@ -43,7 +38,7 @@ let write_response_to_temp_file (_, body) =
   Logging.Module.info "Writing image in %s" output;
   let pipe_r = Http.pipe_of_body body in
   Writer.with_file output ~f:(fun writer ->
-      Writer.transfer writer pipe_r (Writer.write writer))
+    Writer.transfer writer pipe_r (Writer.write writer))
   >>| fun _ -> Result.return output
 ;;
 
@@ -77,10 +72,9 @@ let inset_face f x y width_limit height_limit =
 ;;
 
 let download_and_process_photo file_id =
+  let open Deferred.Result.Let_syntax in
   let download_photo photo_path =
-    Telegram.download_file photo_path
-    >>=? write_response_to_temp_file
-    >>| Result.map_error ~f:(fun x -> Http x)
+    Telegram.download_file photo_path >>=? write_response_to_temp_file
   in
   let process_photo photo =
     try
@@ -105,7 +99,7 @@ let download_and_process_photo file_id =
         let cropped_face_large = cropped face_large in
         let cropped_face_small = cropped face_small in
         let cropped_face_zoomed = cropped face_zoomed in
-        Ok
+        Result.return
           ((if !quality < default_quality
            then
              [ rgb24 image
@@ -119,25 +113,23 @@ let download_and_process_photo file_id =
              ; scale_image cropped_face_zoomed scaled_width
              ])
           |> List.map ~f:(fun image ->
-                 let name = photo ^ (Image_id.create () |> Image_id.to_string) in
-                 image#save name (Some Jpeg) [ Save_Quality !quality ];
-                 name))
+               let name = photo ^ (Image_id.create () |> Image_id.to_string) in
+               image#save name (Some Jpeg) [ Save_Quality !quality ];
+               name))
       | Some (_, landmarks) ->
         Logging.Module.info "Face found, %i landmarks" (List.length landmarks);
-        Error Image_process
-      | _ -> Error Image_process
+        Result.fail (`Err "Failed to process image")
+      | _ -> Result.fail (`Err "Failed to process image")
     with
     | ex ->
       Logging.Module.error "couldn't process image -> %s" (Exn.to_string ex);
-      Error Image_process
+      Result.fail (`Err "Failed to process image")
   in
-  Telegram.get_file file_id
-  >>| Result.map_error ~f:(fun x -> Http x)
-  >>=? (function
-         | { file_path = Some path; _ } -> path |> download_photo
-         | _ -> Deferred.return (Error Image_download))
-  >>|? process_photo
-  >>| Result.join
+  match%bind Telegram.get_file file_id with
+  | { file_path = Some path; _ } ->
+    let%bind photo = path |> download_photo in
+    Deferred.return (process_photo photo)
+  | _ -> Deferred.Result.fail (`Err "Failed to download image")
 ;;
 
 let compress_photos chat_id photos =
@@ -150,9 +142,8 @@ let compress_photos chat_id photos =
     | Ok photos ->
       photos
       |> Deferred.List.iteri ~f:(fun index photo ->
-             let filename = sprintf "fc_%i.jpg" index in
-             Telegram.send_photo ~chat_id ~photo ~filename ~mimetype:"image/jpg"
-             >>| ignore)
+           let filename = sprintf "fc_%i.jpg" index in
+           Telegram.send_photo ~chat_id ~photo ~filename ~mimetype:"image/jpg" >>| ignore)
     | _ -> Deferred.unit
   in
   let compare_photos a b =
@@ -182,7 +173,7 @@ let on_update update =
          |> Option.join
          |> Option.map ~f:(fun quality -> min 100 (max 1 quality))
          |> Option.value ~default:default_quality;
-    don't_wait_for (Telegram.send_message ~chat_id ~text:"Send me a picture" () >>| ignore);
+    Telegram.send_message_don't_wait ~chat_id ~text:"Send me a picture" ();
     true
   | `Photos (photos, chat_id, _) when !is_waiting_for_image ->
     compress_photos chat_id photos

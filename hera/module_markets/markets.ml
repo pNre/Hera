@@ -7,13 +7,13 @@ type market_price =
   { raw : float
   ; fmt : string
   }
-[@@deriving of_yojson { strict = false }]
+[@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
 type market_time =
   { raw : int64
   ; fmt : string
   }
-[@@deriving of_yojson { strict = false }]
+[@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
 type quote =
   { full_exchange_name : string [@key "fullExchangeName"]
@@ -26,16 +26,7 @@ type quote =
   ; long_name : string [@key "longName"]
   ; regular_market_time : market_time [@key "regularMarketTime"]
   }
-[@@deriving of_yojson { strict = false }]
-
-type error =
-  | Http of Http.error
-  | Decoding of string
-
-let string_of_error = function
-  | Http error -> Http.string_of_error error
-  | Decoding error -> error
-;;
+[@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
 let quotes_uri symbol =
   let fields =
@@ -74,16 +65,16 @@ let quotes_uri symbol =
 let quotes ~symbol =
   let decode_entities s = s |> String.substr_replace_all ~pattern:"&amp;" ~with_:"&" in
   let map_result body =
-    body
-    |> Yojson.Safe.from_string
-    |> Yojson.Safe.Util.member "quoteResponse"
-    |> Yojson.Safe.Util.member "result"
-    |> Yojson.Safe.Util.index 0
-    |> quote_of_yojson
+    Result.try_with (fun () ->
+      body
+      |> Jsonaf.of_string
+      |> Jsonaf.member_exn "quoteResponse"
+      |> Jsonaf.member_exn "result"
+      |> Jsonaf.index_exn 0
+      |> quote_of_jsonaf)
     |> Result.map ~f:(fun r -> { r with long_name = decode_entities r.long_name })
-    |> Result.map_error ~f:(fun err -> Decoding err)
+    |> Result.map_error ~f:(fun err -> `Exn err)
   in
-  Http.request `GET (quotes_uri symbol) ()
-  |> Deferred.Result.map_error ~f:(fun err -> Http err)
-  >>=? fun (_, body) -> body |> Http.string_of_body >>| map_result
+  let%map result = Http.request' `GET (quotes_uri symbol) () in
+  Result.bind result ~f:(fun (_, body) -> map_result body)
 ;;

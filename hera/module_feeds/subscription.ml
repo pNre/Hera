@@ -39,11 +39,16 @@ let begin_checking_subscription subscription send =
     >>| Result.map ~f:(send_content_if_needed ~subscription ~send)
     >>| function
     | Ok _ -> ()
-    | Error (`Http err) ->
+    | Error (`Http (`Exn exn)) ->
       Logging.Module.error
         "Download of feed %s failed -> %s"
         subscription.feed_url
-        (Http.string_of_error err)
+        (Exn.to_string exn)
+    | Error (`Http (`Http_response_error (code, _))) ->
+      Logging.Module.error
+        "Download of feed %s failed -> HTTP %d"
+        subscription.feed_url
+        code
     | Error (`Parse (_, error_string)) ->
       Logging.Module.error
         "Parse of feed %s failed -> %s"
@@ -101,11 +106,10 @@ let add_subscription ~subscriber_id ~feed_url ~reply =
     >>> (function
     | Ok (Some subscription) -> begin_checking_subscription subscription reply
     | Error `Too_big ->
-      don't_wait_for
-        (Telegram.send_message
-           ~chat_id:(Int64.of_string subscriber_id)
-           ~text:"File too large"
-           ())
+      Telegram.send_message_don't_wait
+        ~chat_id:(Int64.of_string subscriber_id)
+        ~text:"File too large"
+        ()
     | _ -> ())
   | _ -> Logging.Module.error "Invalid uri %s" feed_url
 ;;

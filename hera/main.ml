@@ -12,14 +12,15 @@ let request_handler ~body _ req =
     Body.to_string body
     >>= fun body ->
     Logging.Main.info "%s" body;
-    let json = Yojson.Safe.from_string body in
-    let update = Telegram.update_of_yojson json in
+    let update =
+      Result.try_with (fun () -> body |> Jsonaf.of_string |> Telegram.update_of_jsonaf)
+    in
     (match update with
      | Ok update ->
        Dispatcher.dispatch update;
        Server.respond `OK
      | Error err ->
-       Logging.Main.error "Decoding -> %s" err;
+       Logging.Main.error "Decoding -> %s" (Exn.to_string err);
        Server.respond `Internal_server_error)
   | _ -> Server.respond `Not_found
 ;;
