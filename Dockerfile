@@ -9,7 +9,7 @@ RUN opam install -y core.v0.15.0
 RUN opam install -y async.v0.15.0
 RUN opam install -y async_ssl.v0.15.0
 RUN opam install -y re2
-RUN opam install -y textutils
+RUN opam install -y textutils.v0.15.0
 RUN opam install -y core_extended.v0.15.0
 RUN opam install -y tls
 RUN opam install -y ssl
@@ -21,7 +21,7 @@ RUN opam install -y xmlm jsonaf.v0.15.0 ppx_jsonaf_conv.v0.15.0
 RUN opam install -y ppx_deriving
 RUN sudo apt-get install -y libjpeg-dev libpng-dev
 RUN opam install -y camlimages
-RUN opam install -y bignum
+RUN opam install -y bignum.v0.15.0
 RUN sudo apt-get update
 RUN sudo apt-get install -y libopencv-dev
 
