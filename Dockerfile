@@ -1,4 +1,4 @@
-FROM ocaml/opam:ubuntu-22.04-ocaml-4.14 AS binary
+FROM ocaml/opam:ubuntu-22.04-ocaml-4.14 AS base
 RUN opam update
 RUN opam depext async.v0.15.0 async_ssl.v0.15.0 camlimages caqti.1.9.0 caqti-driver-sqlite3.1.9.0 cohttp tls
 RUN opam install -y 'base64'
@@ -25,11 +25,10 @@ RUN opam install -y bignum.v0.15.0
 RUN sudo apt-get update
 RUN sudo apt-get install -y libopencv-dev
 
-FROM binary AS builder
+FROM base AS builder
 RUN mkdir /home/opam/hera
 WORKDIR /home/opam/hera
-ARG DUMMY=unknown
-RUN DUMMY=${DUMMY} git clone https://github.com/pNre/Hera.git .
+RUN git clone https://github.com/pNre/Hera.git .
 RUN eval `opam config env` && make
 
 FROM ubuntu:22.04
@@ -45,6 +44,6 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ENV PORT 8001
 EXPOSE 8001
 COPY --from=builder /home/opam/hera/hera/module_faces/assets /app/assets
-COPY --from=builder /home/opam/hera/bin/hera /app
+COPY --from=builder /home/opam/hera/_build/install/default/bin/hera /app
 VOLUME ["/database"]
 CMD ["sh", "-c", "/app/hera"]
