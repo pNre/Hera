@@ -13,7 +13,7 @@ RUN opam install -y textutils.v0.15.0
 RUN opam install -y core_extended.v0.15.0
 RUN opam install -y tls
 RUN opam install -y ssl
-RUN opam install -y cohttp-async
+RUN opam install -y cohttp-async.5.2.0
 RUN opam install -y caqti.1.9.0
 RUN opam install -y caqti-driver-sqlite3.1.9.0
 RUN opam install -y caqti-async.1.9.0
