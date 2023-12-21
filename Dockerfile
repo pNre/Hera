@@ -1,23 +1,23 @@
-FROM ocaml/opam:ubuntu-22.04 AS binary
+FROM ocaml/opam:ubuntu-22.04-ocaml-4.14 AS binary
 RUN opam update
-RUN opam depext async async_ssl camlimages caqti caqti-driver-sqlite3 cohttp tls
+RUN opam depext async.v0.15.0 async_ssl.v0.15.0 camlimages caqti.1.9.0 caqti-driver-sqlite3.1.9.0 cohttp tls
 RUN opam install -y 'base64'
-RUN opam install -y base
+RUN opam install -y base.v0.15.0
 RUN opam install -y ppx_bench ppx_expect variantslib sexplib
 RUN opam install -y ppx_jane
-RUN opam install -y core
-RUN opam install -y async
-RUN opam install -y async_ssl
+RUN opam install -y core.v0.15.0
+RUN opam install -y async.v0.15.0
+RUN opam install -y async_ssl.v0.15.0
 RUN opam install -y re2
 RUN opam install -y textutils
-RUN opam install -y core_extended
+RUN opam install -y core_extended.v0.15.0
 RUN opam install -y tls
 RUN opam install -y ssl
 RUN opam install -y cohttp-async
-RUN opam install -y caqti
-RUN opam install -y caqti-driver-sqlite3
-RUN opam install -y caqti-async
-RUN opam install -y xmlm jsonaf ppx_jsonaf_conv
+RUN opam install -y caqti.1.9.0
+RUN opam install -y caqti-driver-sqlite3.1.9.0
+RUN opam install -y caqti-async.1.9.0
+RUN opam install -y xmlm jsonaf.v0.15.0 ppx_jsonaf_conv.v0.15.0
 RUN opam install -y ppx_deriving
 RUN sudo apt-get install -y libjpeg-dev libpng-dev
 RUN opam install -y camlimages
