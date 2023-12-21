@@ -4,11 +4,11 @@ RUN opam depext async.v0.15.0 async_ssl.v0.15.0 camlimages caqti.1.9.0 caqti-dri
 RUN opam install -y 'base64'
 RUN opam install -y base.v0.15.0
 RUN opam install -y ppx_bench ppx_expect variantslib sexplib
-RUN opam install -y ppx_jane
+RUN opam install -y ppx_jane.v0.15.0
 RUN opam install -y core.v0.15.0
 RUN opam install -y async.v0.15.0
 RUN opam install -y async_ssl.v0.15.0
-RUN opam install -y re2
+RUN opam install -y re2.v0.15.0
 RUN opam install -y textutils.v0.15.0
 RUN opam install -y core_extended.v0.15.0
 RUN opam install -y tls
