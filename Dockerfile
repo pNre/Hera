@@ -3,7 +3,7 @@ RUN opam update
 RUN opam depext async.v0.15.0 async_ssl.v0.15.0 camlimages caqti.1.9.0 caqti-driver-sqlite3.1.9.0 cohttp tls
 RUN opam install -y 'base64'
 RUN opam install -y base.v0.15.0
-RUN opam install -y ppx_bench.v0.15.0 ppx_expect.v0.15.0 variantsli.v0.15.0 sexplib.v0.15.0
+RUN opam install -y ppx_bench.v0.15.0 ppx_expect.v0.15.0 variantslib.v0.15.0 sexplib.v0.15.0
 RUN opam install -y ppx_jane.v0.15.0
 RUN opam install -y core.v0.15.0
 RUN opam install -y async.v0.15.0
