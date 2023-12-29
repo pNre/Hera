@@ -1,6 +1,7 @@
 open Async
 open Core
 open Poly
+open Jsonaf.Export
 
 type user =
   { id : int64
@@ -320,8 +321,8 @@ let parse_update update =
   | { message = Some { chat = { id = chat_id; _ }; text = Some t; _ }; _ } ->
     (match String.split t ~on:' ' with
      | command :: args ->
-       let command = command |> Caml.String.trim |> String.lowercase in
-       let args = args |> List.map ~f:Caml.String.trim in
+       let command = command |> Stdlib.String.trim |> String.lowercase in
+       let args = args |> List.map ~f:Stdlib.String.trim in
        `Command (command, args, chat_id, update)
      | _ -> `Unknown)
   | { message = Some { chat = { id = chat_id; _ }; photo = photos; _ }; _ }

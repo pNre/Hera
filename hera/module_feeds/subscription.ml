@@ -59,7 +59,7 @@ let begin_checking_subscription subscription send =
   let key = Subscription.key subscription in
   let cancellation = Ivar.create () in
   Hashtbl.set subscription_tasks ~key ~data:cancellation;
-  let timespan = Time.Span.create ~min:5 () in
+  let timespan = Time_float.Span.create ~min:5 () in
   Clock.every'
     ~stop:(Ivar.read cancellation)
     ~continue_on_error:true

@@ -37,12 +37,12 @@ let start_checking position send =
         to_string_hum ~delimiter:'.' ~decimals:4 change ^ "%")
     in
     let market_time time =
-      Time_unix.(
+      Time_float_unix.(
         let time =
           time.Markets.raw
           |> Int63.of_int64_trunc
           |> Span.of_int63_seconds
-          |> Time.of_span_since_epoch
+          |> Time_float.of_span_since_epoch
         in
         let zone = Zone.find_exn "Europe/Rome" in
         let formatted_zone = Zone.abbreviation zone time in
@@ -73,7 +73,7 @@ let start_checking position send =
   in
   let cancellation = Ivar.create () in
   Hashtbl.set position_tasks ~key:position.pos.id ~data:cancellation;
-  let timespan = Time.Span.create ~min:10 () in
+  let timespan = Time_float.Span.create ~min:10 () in
   Clock.every'
     ~stop:(Ivar.read cancellation)
     ~continue_on_error:true

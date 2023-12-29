@@ -1,5 +1,6 @@
 open Async
 open Core
+open Jsonaf.Export
 
 type domain = { text : string } [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 

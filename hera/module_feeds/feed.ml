@@ -31,7 +31,7 @@ let map_date mapping date = match date with Date date -> mapping date | _ -> Non
 let map_atom_link ~xmlbase entry =
   match entry with
   | Link (attributes, _) ->
-    Some (Caml.List.assoc "href" attributes |> resolve_uri ~xmlbase)
+    Some (Stdlib.List.assoc "href" attributes |> resolve_uri ~xmlbase)
   | _ -> None
 ;;
 
@@ -119,7 +119,7 @@ let parse_feed xmlbase input =
 ;;
 
 let parse ~xmlbase content =
-  let content = Caml.String.trim content in
+  let content = Stdlib.String.trim content in
   let input = Xmlm.make_input (`String (0, content)) in
   try Ok (parse_feed xmlbase input) with Xmlm.Error (_, error) ->
     Error (`Parse ((0, 0), sprintf "Couldn't parse feed, %s" (Xmlm.error_message error)))

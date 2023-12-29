@@ -69,7 +69,7 @@ let on_update update =
     quality
       := args
          |> List.last
-         |> Option.map ~f:Caml.String.trim
+         |> Option.map ~f:Stdlib.String.trim
          |> Option.map ~f:int_of_string_opt
          |> Option.join
          |> Option.map ~f:(fun quality -> min 100 (max 1 quality))

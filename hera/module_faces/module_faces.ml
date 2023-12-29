@@ -101,21 +101,21 @@ let download_and_process_photo file_id =
         let cropped_face_zoomed = cropped face_zoomed in
         Result.return
           ((if !quality < default_quality
-           then
-             [ rgb24 image
-             ; scale_image cropped_face_small scaled_width
-             ; scale_image cropped_face_large scaled_width
-             ; scale_image cropped_face_zoomed scaled_width
-             ]
-           else
-             [ scale_image cropped_face_small scaled_width
-             ; scale_image cropped_face_large scaled_width
-             ; scale_image cropped_face_zoomed scaled_width
-             ])
-          |> List.map ~f:(fun image ->
-               let name = photo ^ (Image_id.create () |> Image_id.to_string) in
-               image#save name (Some Jpeg) [ Save_Quality !quality ];
-               name))
+            then
+              [ rgb24 image
+              ; scale_image cropped_face_small scaled_width
+              ; scale_image cropped_face_large scaled_width
+              ; scale_image cropped_face_zoomed scaled_width
+              ]
+            else
+              [ scale_image cropped_face_small scaled_width
+              ; scale_image cropped_face_large scaled_width
+              ; scale_image cropped_face_zoomed scaled_width
+              ])
+           |> List.map ~f:(fun image ->
+             let name = photo ^ (Image_id.create () |> Image_id.to_string) in
+             image#save name (Some Jpeg) [ Save_Quality !quality ];
+             name))
       | Some (_, landmarks) ->
         Logging.Module.info "Face found, %i landmarks" (List.length landmarks);
         Result.fail (`Err "Failed to process image")
@@ -141,9 +141,9 @@ let compress_photos chat_id photos =
     match content with
     | Ok photos ->
       photos
-      |> Deferred.List.iteri ~f:(fun index photo ->
-           let filename = sprintf "fc_%i.jpg" index in
-           Telegram.send_photo ~chat_id ~photo ~filename ~mimetype:"image/jpg" >>| ignore)
+      |> Deferred.List.iteri ~how:`Parallel ~f:(fun index photo ->
+        let filename = sprintf "fc_%i.jpg" index in
+        Telegram.send_photo ~chat_id ~photo ~filename ~mimetype:"image/jpg" >>| ignore)
     | _ -> Deferred.unit
   in
   let compare_photos a b =
@@ -166,13 +166,13 @@ let on_update update =
   | `Command ("fc", args, chat_id, _) ->
     is_waiting_for_image := true;
     quality
-      := args
-         |> List.last
-         |> Option.map ~f:Caml.String.trim
-         |> Option.map ~f:int_of_string_opt
-         |> Option.join
-         |> Option.map ~f:(fun quality -> min 100 (max 1 quality))
-         |> Option.value ~default:default_quality;
+    := args
+       |> List.last
+       |> Option.map ~f:Stdlib.String.trim
+       |> Option.map ~f:int_of_string_opt
+       |> Option.join
+       |> Option.map ~f:(fun quality -> min 100 (max 1 quality))
+       |> Option.value ~default:default_quality;
     Telegram.send_message_don't_wait ~chat_id ~text:"Send me a picture" ();
     true
   | `Photos (photos, chat_id, _) when !is_waiting_for_image ->

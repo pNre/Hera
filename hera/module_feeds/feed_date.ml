@@ -53,7 +53,7 @@ let of_rfc822 string =
     | Some (_, x) -> x
     | _ -> string
   in
-  let components = date |> Caml.String.trim |> String.split ~on:' ' in
+  let components = date |> Stdlib.String.trim |> String.split ~on:' ' in
   let parse () =
     match components with
     | [ day; month; year; time ] ->
@@ -66,9 +66,9 @@ let of_rfc822 string =
     | _ ->
       let time =
         string
-        |> Time_unix.of_string
-        |> Time.to_span_since_epoch
-        |> Time.Span.to_sec
+        |> Time_float_unix.of_string
+        |> Time_float.to_span_since_epoch
+        |> Time_float.Span.to_sec
         |> Ptime.of_float_s
       in
       if Option.is_none time then Logging.Module.error "Invalid date %s" string;

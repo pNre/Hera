@@ -1,13 +1,21 @@
 open Async
 open Core
 open Error_handler
+open Jsonaf.Export
 
 type city = { name : string } [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
+
+type time =
+  { iso : string
+  ; s : string
+  }
+[@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
 type data =
   { city : city
   ; dominentpol : string
   ; aqi : int
+  ; time : time
   }
 [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
@@ -51,13 +59,15 @@ let handle_success chat_id body =
   | Ok { status = _; data } ->
     let main = data.dominentpol in
     let aqi = data.aqi in
+    let ts = data.time.s in
     let text =
       sprintf
-        "Air quality in %s\nAQI: *%d*, *%s*\nMain pollutant: *%s*"
+        "Air quality in %s\nAQI: *%d*, *%s*\nMain pollutant: *%s*\nUpdated on %s"
         data.city.name
         aqi
         (string_of_aqi aqi)
         (description_of_concern main)
+        ts
     in
     Telegram.send_message_don't_wait ~chat_id ~text ()
   | Error err -> handle_module_error chat_id (`Exn err)
