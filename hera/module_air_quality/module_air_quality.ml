@@ -5,7 +5,7 @@ open Jsonaf.Export
 
 type city = { name : string } [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
-type time =
+type feed_time =
   { iso : string
   ; s : string
   }
@@ -20,35 +20,63 @@ type iaqi =
   }
 [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
-type data =
+type feed_data =
   { city : city
   ; dominentpol : string
-  ; aqi : int
+  ; aqi : Jsonaf.t
   ; iaqi : iaqi
-  ; time : time
+  ; time : feed_time
   }
 [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
-type response =
+type feed_response =
   { status : string
-  ; data : data
+  ; data : feed_data
+  }
+[@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
+
+type search_time = { vtime : int64 } [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
+
+type search_data =
+  { uid : int
+  ; time : search_time
+  }
+[@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
+
+type search_response =
+  { status : string
+  ; data : search_data list
   }
 [@@deriving of_jsonaf] [@@jsonaf.allow_extra_fields]
 
 let api_token = lazy (Sys.getenv_exn "AQI_TOKEN")
 
-let uri path =
+let uri path ?(query = []) () =
   let token = Lazy.force api_token in
-  Uri.make ~scheme:"https" ~host:"api.waqi.info" ~path ~query:[ "token", [ token ] ] ()
+  Uri.make
+    ~scheme:"https"
+    ~host:"api.waqi.info"
+    ~path
+    ~query:(List.append [ "token", [ token ] ] query)
+    ()
+;;
+
+let description_of_aqi = function
+  | `Number n ->
+    (match Int.of_string_opt n with
+     | Some x when x <= 50 -> "Good"
+     | Some x when x <= 100 -> "Moderate"
+     | Some x when x <= 150 -> "Unhealthy-ish"
+     | Some x when x <= 200 -> "*Unhealthy*"
+     | Some x when x <= 300 -> "*Very Unhealthy*"
+     | Some _ -> "*Hazardous, RUN*"
+     | None -> "-")
+  | _ -> "-"
 ;;
 
 let string_of_aqi = function
-  | x when x <= 50 -> "Good"
-  | x when x <= 100 -> "Moderate"
-  | x when x <= 150 -> "Unhealthy-ish"
-  | x when x <= 200 -> "*Unhealthy*"
-  | x when x <= 300 -> "*Very Unhealthy*"
-  | _ -> "*Hazardous, RUN*"
+  | `Number v | `String v -> v
+  | _ -> "?"
 ;;
 
 let description_of_concern = function
@@ -65,7 +93,7 @@ let formatted_vval v = sprintf "%f" v.v
 
 let handle_success chat_id body =
   let result =
-    Result.try_with (fun () -> body |> Jsonaf.of_string |> response_of_jsonaf)
+    Result.try_with (fun () -> body |> Jsonaf.of_string |> feed_response_of_jsonaf)
   in
   match result with
   | Ok { status = _; data } ->
@@ -77,14 +105,14 @@ let handle_success chat_id body =
     let text =
       sprintf
         "Air quality in %s\n\
-         AQI: *%d*, *%s*\n\
+         AQI: *%s*, *%s*\n\
          Main pollutant: *%s*\n\
          PM10: *%s*\n\
          PM2.5: *%s*\n\n\
          _Updated on %s_"
         data.city.name
-        aqi
         (string_of_aqi aqi)
+        (description_of_aqi aqi)
         (description_of_concern main)
         pm10
         pm25
@@ -95,8 +123,27 @@ let handle_success chat_id body =
 ;;
 
 let get_air_quality ~chat_id ~city =
-  Http.request `GET (uri ("/feed/" ^ Uri.pct_encode ~component:`Path city)) ()
+  Http.request `GET (uri "/search/" ~query:[ "keyword", [ city ] ] ()) ()
   >>=? (fun (_, body) -> Http.string_of_body body >>| Result.return)
+  >>=? (fun body ->
+         Result.try_with (fun () -> body |> Jsonaf.of_string |> search_response_of_jsonaf)
+         |> Result.map_error ~f:(fun e -> `Exn e)
+         |> Deferred.return)
+  >>=? (fun search_response ->
+         let best_station =
+           search_response.data
+           |> List.sort ~compare:(fun lhs rhs ->
+             Int64.descending lhs.time.vtime rhs.time.vtime)
+           |> List.hd
+         in
+         match best_station with
+         | Some s ->
+           Http.request
+             `GET
+             (uri ("/feed/" ^ Uri.pct_encode ~component:`Path (sprintf "@%d" s.uid)) ())
+             ()
+           >>=? fun (_, body) -> Http.string_of_body body >>| Result.return
+         | None -> Deferred.Result.fail (`Exn (Failure "No results")))
   >>> function
   | Ok body -> handle_success chat_id body
   | Error err -> handle_module_error chat_id err
@@ -104,7 +151,7 @@ let get_air_quality ~chat_id ~city =
 
 (* Bot module *)
 let register () = ()
-let help () = "*Air quality*\n`aq [city] [state] [country]`"
+let help () = "*Air quality*\n`aq [city]`"
 
 let on_update update =
   match Telegram.parse_update update with
