@@ -28,7 +28,7 @@ RUN sudo apt-get install -y libopencv-dev
 FROM base AS builder
 RUN mkdir /home/opam/hera
 WORKDIR /home/opam/hera
-RUN git clone https://github.com/pNre/Hera.git .
+COPY --chown=opam . .
 RUN eval `opam config env` && make
 
 FROM ubuntu:22.04
